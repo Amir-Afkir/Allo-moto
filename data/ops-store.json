@@ -1,0 +1,351 @@
+{
+  "version": 1,
+  "vehicles": [
+    {
+      "id": "vehicle-honda-forza-350",
+      "slug": "honda-forza-350",
+      "name": "Forza 350",
+      "brand": "Honda",
+      "model": "Forza 350",
+      "category": "scooter",
+      "transmission": "automatic",
+      "licenseCategory": "A1",
+      "locationLabel": "Orléans • Centre-ville",
+      "featured": true,
+      "priceFrom": {
+        "amount": 49,
+        "currency": "EUR"
+      },
+      "deposit": {
+        "amount": 600,
+        "currency": "EUR"
+      },
+      "includedMileageKmPerDay": 140,
+      "description": "Scooter compact, automatique et rassurant pour la ville.",
+      "primaryImage": "/uploads/fleet/honda-forza-350-e2e7bb64-5109-4e47-900d-aba030d2ac05.png",
+      "gallery": [],
+      "monogram": "F3",
+      "heroTag": "Ville simple et rapide.",
+      "editorialNote": "Compact, automatique et rassurant.",
+      "decisionTags": [
+        "Ville",
+        "Automatique",
+        "A1"
+      ],
+      "visualTone": "sand",
+      "opsStatus": "active",
+      "createdAt": "2026-04-04T18:58:17.843Z",
+      "updatedAt": "2026-04-04T20:02:48.177Z"
+    },
+    {
+      "id": "vehicle-yamaha-xmax-300",
+      "slug": "yamaha-xmax-300",
+      "name": "XMAX 300",
+      "brand": "Yamaha",
+      "model": "XMAX 300",
+      "category": "scooter",
+      "transmission": "automatic",
+      "licenseCategory": "A2",
+      "locationLabel": "Orléans • Centre-ville",
+      "featured": true,
+      "priceFrom": {
+        "amount": 59,
+        "currency": "EUR"
+      },
+      "deposit": {
+        "amount": 700,
+        "currency": "EUR"
+      },
+      "includedMileageKmPerDay": 140,
+      "description": "Compromis premium entre confort, autonomie et maniabilité.",
+      "primaryImage": "/uploads/fleet/yamaha-xmax-300.png",
+      "gallery": [],
+      "monogram": "XM",
+      "heroTag": "Confort rapide, sans complication.",
+      "editorialNote": "Stable, confortable et visuel très fort.",
+      "decisionTags": [
+        "Confort",
+        "A2",
+        "Ville + route"
+      ],
+      "visualTone": "steel",
+      "opsStatus": "active",
+      "createdAt": "2026-04-04T18:58:17.843Z",
+      "updatedAt": "2026-04-04T20:26:01.730Z"
+    },
+    {
+      "id": "vehicle-bmw-g310r",
+      "slug": "bmw-g310r",
+      "name": "G 310 R",
+      "brand": "BMW",
+      "model": "G 310 R",
+      "category": "roadster",
+      "transmission": "manual",
+      "licenseCategory": "A2",
+      "locationLabel": "Orléans • Centre-ville",
+      "featured": true,
+      "priceFrom": {
+        "amount": 69,
+        "currency": "EUR"
+      },
+      "deposit": {
+        "amount": 750,
+        "currency": "EUR"
+      },
+      "includedMileageKmPerDay": 120,
+      "description": "Roadster léger, précis et rassurant pour les profils A2.",
+      "primaryImage": "/uploads/fleet/bmw-g310r-ef1968d4-bfea-4e0d-ac09-5678150bf0cc.png",
+      "gallery": [],
+      "monogram": "G3",
+      "heroTag": "Roadster compact et lisible.",
+      "editorialNote": "Taille contenue, présence premium.",
+      "decisionTags": [
+        "Roadster",
+        "A2",
+        "Manuelle"
+      ],
+      "visualTone": "graphite",
+      "opsStatus": "active",
+      "createdAt": "2026-04-04T18:58:17.843Z",
+      "updatedAt": "2026-04-04T20:29:44.036Z"
+    },
+    {
+      "id": "vehicle-royal-enfield-himalayan-450",
+      "slug": "royal-enfield-himalayan-450",
+      "name": "Himalayan 450",
+      "brand": "Royal Enfield",
+      "model": "Himalayan 450",
+      "category": "adventure",
+      "transmission": "manual",
+      "licenseCategory": "A2",
+      "locationLabel": "Orléans • Centre-ville",
+      "featured": false,
+      "priceFrom": {
+        "amount": 79,
+        "currency": "EUR"
+      },
+      "deposit": {
+        "amount": 900,
+        "currency": "EUR"
+      },
+      "includedMileageKmPerDay": 160,
+      "description": "Trail accessible pour les routes plus longues et les escapades.",
+      "primaryImage": "",
+      "gallery": [],
+      "monogram": "H4",
+      "heroTag": "Escapade simple, posture haute.",
+      "editorialNote": "Position relax, duo facile, route ouverte.",
+      "decisionTags": [
+        "Trail",
+        "A2",
+        "Escapade"
+      ],
+      "visualTone": "olive",
+      "opsStatus": "active",
+      "createdAt": "2026-04-04T18:58:17.843Z",
+      "updatedAt": "2026-04-04T18:58:17.843Z"
+    },
+    {
+      "id": "vehicle-triumph-tiger-900-gt",
+      "slug": "triumph-tiger-900-gt",
+      "name": "Tiger 900 GT",
+      "brand": "Triumph",
+      "model": "Tiger 900 GT",
+      "category": "touring",
+      "transmission": "manual",
+      "licenseCategory": "A",
+      "locationLabel": "Orléans • Centre-ville",
+      "featured": false,
+      "priceFrom": {
+        "amount": 99,
+        "currency": "EUR"
+      },
+      "deposit": {
+        "amount": 1200,
+        "currency": "EUR"
+      },
+      "includedMileageKmPerDay": 180,
+      "description": "Touring premium, confortable, stable et prêt pour la route.",
+      "primaryImage": "",
+      "gallery": [],
+      "monogram": "T9",
+      "heroTag": "Voyage et confort en priorité.",
+      "editorialNote": "Pensée pour rouler longtemps, sans fatigue.",
+      "decisionTags": [
+        "Touring",
+        "A",
+        "Longue route"
+      ],
+      "visualTone": "sea",
+      "opsStatus": "active",
+      "createdAt": "2026-04-04T18:58:17.843Z",
+      "updatedAt": "2026-04-04T18:58:17.843Z"
+    },
+    {
+      "id": "vehicle-ducati-monster-937",
+      "slug": "ducati-monster-937",
+      "name": "Monster 937",
+      "brand": "Ducati",
+      "model": "Monster 937",
+      "category": "sport",
+      "transmission": "manual",
+      "licenseCategory": "A",
+      "locationLabel": "Orléans • Centre-ville",
+      "featured": false,
+      "priceFrom": {
+        "amount": 109,
+        "currency": "EUR"
+      },
+      "deposit": {
+        "amount": 1500,
+        "currency": "EUR"
+      },
+      "includedMileageKmPerDay": 160,
+      "description": "Naked sportive, vive et très expressive pour les amateurs de sensations.",
+      "primaryImage": "",
+      "gallery": [],
+      "monogram": "M9",
+      "heroTag": "Caractère fort, lecture immédiate.",
+      "editorialNote": "Plus affirmée, plus vivante, plus sportive.",
+      "decisionTags": [
+        "Sport",
+        "A",
+        "Manuelle"
+      ],
+      "visualTone": "ember",
+      "opsStatus": "active",
+      "createdAt": "2026-04-04T18:58:17.843Z",
+      "updatedAt": "2026-04-04T18:58:17.843Z"
+    },
+    {
+      "id": "vehicle-harley-street-bob",
+      "slug": "harley-street-bob",
+      "name": "Street Bob",
+      "brand": "Harley-Davidson",
+      "model": "Street Bob",
+      "category": "custom",
+      "transmission": "manual",
+      "licenseCategory": "A",
+      "locationLabel": "Orléans • Centre-ville",
+      "featured": false,
+      "priceFrom": {
+        "amount": 119,
+        "currency": "EUR"
+      },
+      "deposit": {
+        "amount": 1800,
+        "currency": "EUR"
+      },
+      "includedMileageKmPerDay": 150,
+      "description": "Custom brut et assumé, pensé pour le style et la présence.",
+      "primaryImage": "",
+      "gallery": [],
+      "monogram": "SB",
+      "heroTag": "Une présence très marquée.",
+      "editorialNote": "Look iconique, position basse, moteur généreux.",
+      "decisionTags": [
+        "Custom",
+        "A",
+        "Style"
+      ],
+      "visualTone": "graphite",
+      "opsStatus": "active",
+      "createdAt": "2026-04-04T18:58:17.843Z",
+      "updatedAt": "2026-04-04T18:58:17.843Z"
+    },
+    {
+      "id": "vehicle-harley-street-glide",
+      "slug": "harley-street-glide",
+      "name": "Street Glide",
+      "brand": "Harley-Davidson",
+      "model": "Street Glide",
+      "category": "touring",
+      "transmission": "manual",
+      "licenseCategory": "A",
+      "locationLabel": "Orléans • Centre-ville",
+      "featured": false,
+      "priceFrom": {
+        "amount": 149,
+        "currency": "EUR"
+      },
+      "deposit": {
+        "amount": 2500,
+        "currency": "EUR"
+      },
+      "includedMileageKmPerDay": 200,
+      "description": "Grand touring confortable pour les longues routes et le duo.",
+      "primaryImage": "",
+      "gallery": [],
+      "monogram": "SG",
+      "heroTag": "Longue route, très grand confort.",
+      "editorialNote": "Généreuse, stable et pensée pour voyager.",
+      "decisionTags": [
+        "Touring",
+        "A",
+        "Duo"
+      ],
+      "visualTone": "amber",
+      "opsStatus": "active",
+      "createdAt": "2026-04-04T18:58:17.843Z",
+      "updatedAt": "2026-04-04T18:58:17.843Z"
+    }
+  ],
+  "reservations": [
+    {
+      "id": "reservation-mnkt0ips-uone8n",
+      "reference": "AM-HOND-T0IPS",
+      "vehicleSlug": "honda-forza-350",
+      "customerFirstName": "Amir",
+      "customerLastName": "AFKIR",
+      "customerEmail": "afkir202@gmail.com",
+      "customerPhone": "0641503886",
+      "customerCountry": "",
+      "customerPreferredContact": "whatsapp",
+      "permitType": "A1",
+      "permitNumber": "",
+      "documentType": "none",
+      "documentNumber": "",
+      "customerNotes": "",
+      "consentDataUse": true,
+      "pickupMode": "motorcycle-location",
+      "pickupLocationLabel": "Orléans • Centre-ville",
+      "pickupDate": "2026-04-05",
+      "returnDate": "2026-04-07",
+      "pickupAt": "2026-04-05T09:00:00.000Z",
+      "returnAt": "2026-04-07T17:00:00.000Z",
+      "totalDays": 3,
+      "dailyPrice": 49,
+      "estimatedTotal": 147,
+      "depositAmount": 600,
+      "paymentMode": "pickup",
+      "status": "confirmed",
+      "adminNote": "Reservation confirmee. Paiement au retrait.",
+      "createdAt": "2026-04-04T20:47:40.480Z",
+      "updatedAt": "2026-04-04T20:51:43.035Z"
+    }
+  ],
+  "vehicleBlocks": [
+    {
+      "id": "seed-block-harley-street-bob",
+      "vehicleSlug": "harley-street-bob",
+      "type": "manual_block",
+      "startAt": "2026-03-05T18:58:17.843Z",
+      "endAt": "2026-05-04T18:58:17.843Z",
+      "reservationId": null,
+      "note": "Bloquee hors ligne.",
+      "createdAt": "2026-04-04T18:58:17.843Z",
+      "updatedAt": "2026-04-04T18:58:17.843Z"
+    },
+    {
+      "id": "block-reservation-mnkt0ips-uone8n",
+      "vehicleSlug": "honda-forza-350",
+      "type": "reservation",
+      "startAt": "2026-04-05T09:00:00.000Z",
+      "endAt": "2026-04-07T17:00:00.000Z",
+      "reservationId": "reservation-mnkt0ips-uone8n",
+      "note": "Reservation confirmee AM-HOND-T0IPS",
+      "createdAt": "2026-04-04T20:51:43.035Z",
+      "updatedAt": "2026-04-04T20:51:43.035Z"
+    }
+  ]
+}

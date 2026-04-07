@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+
+# Add the canonical sitemap URL once the production domain is fixed.

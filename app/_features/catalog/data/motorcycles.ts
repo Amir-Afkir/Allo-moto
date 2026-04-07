@@ -1,0 +1,366 @@
+import {
+  type Motorcycle,
+  type MotorcycleCategory,
+  type MotorcycleLicenseCategory,
+  type MotorcycleStatus,
+  type Transmission,
+} from "./rental-domain";
+
+export type { MotorcycleLicenseCategory } from "./rental-domain";
+
+export type MotoVisualTone = "sand" | "amber" | "graphite" | "ember" | "olive" | "steel" | "sea" | "copper";
+
+export type CatalogSortKey = "recommended" | "price-asc" | "price-desc" | "availability" | "name";
+export type CatalogPriceBand = "all" | "entry" | "mid" | "premium";
+export type CatalogAvailabilityFilter = "all" | "available" | "reserved" | "maintenance";
+
+export interface CatalogMotorcycle extends Motorcycle {
+  monogram: string;
+  heroTag: string;
+  editorialNote: string;
+  decisionTags: readonly string[];
+  availabilityCopy: string;
+  visualTone: MotoVisualTone;
+}
+
+export const MOTORCYCLE_CATEGORY_LABELS: Record<MotorcycleCategory, string> = {
+  scooter: "Scooter",
+  roadster: "Roadster",
+  adventure: "Trail",
+  touring: "Touring",
+  sport: "Sportive",
+  custom: "Custom",
+  electric: "Électrique",
+};
+
+export const MOTORCYCLE_TRANSMISSION_LABELS: Record<Transmission, string> = {
+  automatic: "Automatique",
+  manual: "Manuelle",
+};
+
+export const MOTORCYCLE_LICENSE_LABELS: Record<MotorcycleLicenseCategory | "none", string> = {
+  none: "Permis à préciser",
+  B: "Permis B",
+  A1: "Permis A1",
+  A2: "Permis A2",
+  A: "Permis A",
+};
+
+export const MOTORCYCLE_STATUS_META: Record<MotorcycleStatus, { label: string; tone: "neutral" | "success" | "warning" | "danger" | "outline" }> = {
+  available: { label: "Disponible", tone: "success" },
+  reserved: { label: "Réservée", tone: "neutral" },
+  maintenance: { label: "En maintenance", tone: "danger" },
+  inactive: { label: "Inactive", tone: "outline" },
+  draft: { label: "Brouillon", tone: "outline" },
+};
+
+export const MOTORCYCLE_TONE_CLASSES: Record<MotoVisualTone, string> = {
+  sand: "from-[#d8c1a9] via-[#eadfce] to-[#f7f1e7]",
+  amber: "from-[#dba44d] via-[#edcf96] to-[#faf0df]",
+  graphite: "from-[#7d786f] via-[#c7c2ba] to-[#f2eee7]",
+  ember: "from-[#9a5535] via-[#cd8660] to-[#f9e4d5]",
+  olive: "from-[#80885f] via-[#c2c9a6] to-[#eff2e6]",
+  steel: "from-[#6d879f] via-[#c9d6e4] to-[#eef4fa]",
+  sea: "from-[#4f8f97] via-[#a9d5d9] to-[#edf8f8]",
+  copper: "from-[#b16e43] via-[#dfb48b] to-[#f8efe5]",
+};
+
+export const MOTORCYCLE_CATEGORY_OPTIONS: ReadonlyArray<{ value: MotorcycleCategory; label: string }> = [
+  { value: "scooter", label: "Scooter" },
+  { value: "roadster", label: "Roadster" },
+  { value: "adventure", label: "Trail" },
+  { value: "touring", label: "Touring" },
+  { value: "sport", label: "Sportive" },
+  { value: "custom", label: "Custom" },
+  { value: "electric", label: "Électrique" },
+];
+
+export const MOTORCYCLE_TRANSMISSION_OPTIONS: ReadonlyArray<{ value: Transmission; label: string }> = [
+  { value: "automatic", label: "Automatique" },
+  { value: "manual", label: "Manuelle" },
+];
+
+export const MOTORCYCLE_LICENSE_OPTIONS: ReadonlyArray<{ value: MotorcycleLicenseCategory; label: string }> = [
+  { value: "B", label: "Permis B" },
+  { value: "A1", label: "Permis A1" },
+  { value: "A2", label: "Permis A2" },
+  { value: "A", label: "Permis A" },
+];
+
+export const MOTORCYCLE_PRICE_BAND_OPTIONS: ReadonlyArray<{ value: CatalogPriceBand; label: string }> = [
+  { value: "all", label: "Tous les prix" },
+  { value: "entry", label: "Entrée de gamme" },
+  { value: "mid", label: "Milieu de gamme" },
+  { value: "premium", label: "Premium" },
+];
+
+export const MOTORCYCLE_AVAILABILITY_OPTIONS: ReadonlyArray<{ value: CatalogAvailabilityFilter; label: string }> = [
+  { value: "all", label: "Toutes" },
+  { value: "available", label: "Disponibles" },
+  { value: "reserved", label: "Réservées" },
+  { value: "maintenance", label: "Maintenance" },
+];
+
+export const MOTORCYCLE_SORT_OPTIONS: ReadonlyArray<{ value: CatalogSortKey; label: string }> = [
+  { value: "recommended", label: "Recommandées" },
+  { value: "price-asc", label: "Prix croissant" },
+  { value: "price-desc", label: "Prix décroissant" },
+  { value: "availability", label: "Disponibilité" },
+  { value: "name", label: "Nom" },
+];
+
+export const MOTORCYCLE_CATALOG: ReadonlyArray<CatalogMotorcycle> = [
+  {
+    slug: "honda-forza-350",
+    name: "Forza 350",
+    brand: "Honda",
+    model: "Forza 350",
+    category: "scooter",
+    status: "available",
+    transmission: "automatic",
+    licenseCategory: "A1",
+    locationLabel: "Orléans • Centre-ville",
+    featured: true,
+    priceFrom: { amount: 49, currency: "EUR" },
+    deposit: { amount: 600, currency: "EUR" },
+    includedMileageKmPerDay: 140,
+    description: "Scooter compact, automatique et rassurant pour la ville.",
+    primaryImage: "",
+    gallery: [],
+    monogram: "F3",
+    heroTag: "Ville simple et rapide.",
+    editorialNote: "Compact, automatique et rassurant.",
+    decisionTags: ["Ville", "Automatique", "A1"],
+    availabilityCopy: "Disponible aujourd’hui",
+    visualTone: "sand",
+  },
+  {
+    slug: "peugeot-django-125",
+    name: "Django 125",
+    brand: "Peugeot",
+    model: "Django 125",
+    category: "scooter",
+    status: "available",
+    transmission: "automatic",
+    licenseCategory: "A1",
+    locationLabel: "Orléans • Centre-ville",
+    featured: true,
+    priceFrom: { amount: 39, currency: "EUR" },
+    deposit: { amount: 450, currency: "EUR" },
+    includedMileageKmPerDay: 130,
+    description: "Un scooter urbain élégant, simple et très lisible.",
+    primaryImage: "",
+    gallery: [],
+    monogram: "DJ",
+    heroTag: "Idéal pour les trajets courts.",
+    editorialNote: "Léger, pratique et facile à prendre en main.",
+    decisionTags: ["Ville", "Facile", "A1"],
+    availabilityCopy: "Disponible",
+    visualTone: "amber",
+  },
+  {
+    slug: "yamaha-xmax-300",
+    name: "XMAX 300",
+    brand: "Yamaha",
+    model: "XMAX 300",
+    category: "scooter",
+    status: "available",
+    transmission: "automatic",
+    licenseCategory: "A2",
+    locationLabel: "Orléans • Centre-ville",
+    featured: true,
+    priceFrom: { amount: 59, currency: "EUR" },
+    deposit: { amount: 700, currency: "EUR" },
+    includedMileageKmPerDay: 140,
+    description: "Compromis premium entre confort, autonomie et maniabilité.",
+    primaryImage: "",
+    gallery: [],
+    monogram: "XM",
+    heroTag: "Confort rapide, sans complication.",
+    editorialNote: "Stable, confortable et visuel très fort.",
+    decisionTags: ["Confort", "A2", "Ville + route"],
+    availabilityCopy: "Disponible",
+    visualTone: "steel",
+  },
+  {
+    slug: "bmw-g310r",
+    name: "G 310 R",
+    brand: "BMW",
+    model: "G 310 R",
+    category: "roadster",
+    status: "available",
+    transmission: "manual",
+    licenseCategory: "A2",
+    locationLabel: "Orléans • Centre-ville",
+    featured: false,
+    priceFrom: { amount: 69, currency: "EUR" },
+    deposit: { amount: 750, currency: "EUR" },
+    includedMileageKmPerDay: 120,
+    description: "Roadster léger, précis et rassurant pour les profils A2.",
+    primaryImage: "",
+    gallery: [],
+    monogram: "G3",
+    heroTag: "Roadster compact et lisible.",
+    editorialNote: "Taille contenue, présence premium.",
+    decisionTags: ["Roadster", "A2", "Manuelle"],
+    availabilityCopy: "Disponible",
+    visualTone: "graphite",
+  },
+  {
+    slug: "royal-enfield-himalayan-450",
+    name: "Himalayan 450",
+    brand: "Royal Enfield",
+    model: "Himalayan 450",
+    category: "adventure",
+    status: "available",
+    transmission: "manual",
+    licenseCategory: "A2",
+    locationLabel: "Orléans • Centre-ville",
+    featured: false,
+    priceFrom: { amount: 79, currency: "EUR" },
+    deposit: { amount: 900, currency: "EUR" },
+    includedMileageKmPerDay: 160,
+    description: "Trail accessible pour les routes plus longues et les escapades.",
+    primaryImage: "",
+    gallery: [],
+    monogram: "H4",
+    heroTag: "Escapade simple, posture haute.",
+    editorialNote: "Position relax, duo facile, route ouverte.",
+    decisionTags: ["Trail", "A2", "Escapade"],
+    availabilityCopy: "Disponible",
+    visualTone: "olive",
+  },
+  {
+    slug: "triumph-tiger-900-gt",
+    name: "Tiger 900 GT",
+    brand: "Triumph",
+    model: "Tiger 900 GT",
+    category: "touring",
+    status: "available",
+    transmission: "manual",
+    licenseCategory: "A",
+    locationLabel: "Orléans • Centre-ville",
+    featured: false,
+    priceFrom: { amount: 99, currency: "EUR" },
+    deposit: { amount: 1200, currency: "EUR" },
+    includedMileageKmPerDay: 180,
+    description: "Touring premium, confortable, stable et prêt pour la route.",
+    primaryImage: "",
+    gallery: [],
+    monogram: "T9",
+    heroTag: "Voyage et confort en priorité.",
+    editorialNote: "Pensée pour rouler longtemps, sans fatigue.",
+    decisionTags: ["Touring", "A", "Longue route"],
+    availabilityCopy: "Disponible",
+    visualTone: "sea",
+  },
+  {
+    slug: "ducati-monster-937",
+    name: "Monster 937",
+    brand: "Ducati",
+    model: "Monster 937",
+    category: "sport",
+    status: "available",
+    transmission: "manual",
+    licenseCategory: "A",
+    locationLabel: "Orléans • Centre-ville",
+    featured: false,
+    priceFrom: { amount: 109, currency: "EUR" },
+    deposit: { amount: 1500, currency: "EUR" },
+    includedMileageKmPerDay: 160,
+    description: "Naked sportive, vive et très expressive pour les amateurs de sensations.",
+    primaryImage: "",
+    gallery: [],
+    monogram: "M9",
+    heroTag: "Caractère fort, lecture immédiate.",
+    editorialNote: "Plus affirmée, plus vivante, plus sportive.",
+    decisionTags: ["Sport", "A", "Manuelle"],
+    availabilityCopy: "Disponible",
+    visualTone: "ember",
+  },
+  {
+    slug: "zero-sr-f",
+    name: "SR/F",
+    brand: "Zero",
+    model: "SR/F",
+    category: "electric",
+    status: "maintenance",
+    transmission: "automatic",
+    licenseCategory: "A2",
+    locationLabel: "Orléans • Centre-ville",
+    featured: false,
+    priceFrom: { amount: 89, currency: "EUR" },
+    deposit: { amount: 1100, currency: "EUR" },
+    includedMileageKmPerDay: 180,
+    description: "Moto électrique premium, instantanée et silencieuse.",
+    primaryImage: "",
+    gallery: [],
+    monogram: "SF",
+    heroTag: "Électrique, nette, différente.",
+    editorialNote: "Silencieuse, sans embrayage, très directe.",
+    decisionTags: ["Électrique", "A2", "Automatique"],
+    availabilityCopy: "En maintenance",
+    visualTone: "copper",
+  },
+  {
+    slug: "harley-street-bob",
+    name: "Street Bob",
+    brand: "Harley-Davidson",
+    model: "Street Bob",
+    category: "custom",
+    status: "reserved",
+    transmission: "manual",
+    licenseCategory: "A",
+    locationLabel: "Orléans • Centre-ville",
+    featured: false,
+    priceFrom: { amount: 119, currency: "EUR" },
+    deposit: { amount: 1800, currency: "EUR" },
+    includedMileageKmPerDay: 150,
+    description: "Custom brut et assumé, pensé pour le style et la présence.",
+    primaryImage: "",
+    gallery: [],
+    monogram: "SB",
+    heroTag: "Une présence très marquée.",
+    editorialNote: "Look iconique, position basse, moteur généreux.",
+    decisionTags: ["Custom", "A", "Style"],
+    availabilityCopy: "Réservée",
+    visualTone: "graphite",
+  },
+  {
+    slug: "harley-street-glide",
+    name: "Street Glide",
+    brand: "Harley-Davidson",
+    model: "Street Glide",
+    category: "touring",
+    status: "available",
+    transmission: "manual",
+    licenseCategory: "A",
+    locationLabel: "Orléans • Centre-ville",
+    featured: false,
+    priceFrom: { amount: 149, currency: "EUR" },
+    deposit: { amount: 2500, currency: "EUR" },
+    includedMileageKmPerDay: 200,
+    description: "Grand touring confortable pour les longues routes et le duo.",
+    primaryImage: "",
+    gallery: [],
+    monogram: "SG",
+    heroTag: "Longue route, très grand confort.",
+    editorialNote: "Généreuse, stable et pensée pour voyager.",
+    decisionTags: ["Touring", "A", "Duo"],
+    availabilityCopy: "Disponible",
+    visualTone: "amber",
+  },
+];
+
+export const MOTORCYCLE_CATALOG_BY_SLUG: ReadonlyMap<string, CatalogMotorcycle> = new Map(
+  MOTORCYCLE_CATALOG.map((motorcycle) => [motorcycle.slug, motorcycle] as const)
+);
+
+export function getMotorcycleBySlug(slug: string): CatalogMotorcycle | null {
+  return MOTORCYCLE_CATALOG_BY_SLUG.get(slug) ?? null;
+}
+
+export function getFeaturedMotorcycles(limit = 3): ReadonlyArray<CatalogMotorcycle> {
+  const featured = MOTORCYCLE_CATALOG.filter((motorcycle) => motorcycle.featured);
+  return (featured.length > 0 ? featured : MOTORCYCLE_CATALOG).slice(0, limit);
+}
