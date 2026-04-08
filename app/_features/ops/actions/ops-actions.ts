@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import {
   addVehicleBlock,
   deleteVehicle,
+  getAdminVehicleBySlug,
   type OpsVehicleSaveValues,
   removeVehicleBlock,
   saveVehicle,
@@ -15,6 +16,11 @@ import {
   clearAdminSession,
   requireAdminSession,
 } from "@/app/_features/ops/lib/auth";
+import {
+  deleteVehicleImageAsset,
+  type UploadedVehicleImage,
+  uploadVehicleImage,
+} from "@/app/_features/ops/lib/image-upload";
 
 function readString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -28,6 +34,27 @@ function readNumber(formData: FormData, key: string) {
 
 function readCheckbox(formData: FormData, key: string) {
   return formData.get(key) === "on";
+}
+
+function readFile(formData: FormData, key: string) {
+  const value = formData.get(key);
+  return value instanceof File && value.size > 0 ? value : null;
+}
+
+function readVehicleImageState(formData: FormData) {
+  const value = readString(formData, "primaryImageState");
+  return value === "replace" || value === "remove" ? value : "keep";
+}
+
+function buildVehicleErrorPath(
+  currentSlug: string | null,
+  error: "save" | "image",
+) {
+  if (currentSlug) {
+    return `/ops/fleet/${currentSlug}?error=${error}`;
+  }
+
+  return `/ops/fleet/new?error=${error}`;
 }
 
 function appendErrorToReturnPath(pathname: string, error: string) {
@@ -103,9 +130,44 @@ export async function saveVehicleAction(formData: FormData) {
   await requireAdminSession();
 
   const currentSlug = readString(formData, "currentSlug") || null;
+  const imageState = readVehicleImageState(formData);
+  const imageFile = readFile(formData, "primaryImageFile");
   let redirectSlug = currentSlug;
+  let uploadedImage: UploadedVehicleImage | null = null;
+  let errorType: "save" | "image" = "save";
+  const existingVehicle = currentSlug
+    ? (await getAdminVehicleBySlug(currentSlug))?.vehicle ?? null
+    : null;
 
   try {
+    let primaryImage = existingVehicle?.primaryImage ?? "";
+    let primaryImagePublicId = existingVehicle?.primaryImagePublicId ?? null;
+
+    if (imageState === "replace") {
+      if (!imageFile) {
+        errorType = "image";
+        throw new Error("Missing image file.");
+      }
+
+      try {
+        uploadedImage = await uploadVehicleImage({
+          file: imageFile,
+          slugHint:
+            currentSlug ||
+            `${readString(formData, "brand")} ${readString(formData, "name")}`,
+        });
+      } catch {
+        errorType = "image";
+        throw new Error("Vehicle image upload failed.");
+      }
+
+      primaryImage = uploadedImage.src;
+      primaryImagePublicId = uploadedImage.publicId;
+    } else if (imageState === "remove") {
+      primaryImage = "";
+      primaryImagePublicId = null;
+    }
+
     const values: OpsVehicleSaveValues = {
       name: readString(formData, "name"),
       brand: readString(formData, "brand"),
@@ -120,7 +182,8 @@ export async function saveVehicleAction(formData: FormData) {
         formData,
         "includedMileageKmPerDay",
       ),
-      primaryImage: readString(formData, "primaryImage"),
+      primaryImage,
+      primaryImagePublicId,
       editorialNote: readString(formData, "editorialNote"),
       opsStatus: readString(formData, "opsStatus") as never,
     };
@@ -129,8 +192,36 @@ export async function saveVehicleAction(formData: FormData) {
       values,
     });
     redirectSlug = vehicle.slug;
+
+    if (
+      imageState === "replace" &&
+      existingVehicle?.primaryImage &&
+      existingVehicle.primaryImage !== primaryImage
+    ) {
+      await deleteVehicleImageAsset({
+        src: existingVehicle.primaryImage,
+        publicId: existingVehicle.primaryImagePublicId,
+      }).catch(() => {
+        // Keep the saved vehicle even if the previous image cleanup fails.
+      });
+    }
+
+    if (imageState === "remove" && existingVehicle?.primaryImage) {
+      await deleteVehicleImageAsset({
+        src: existingVehicle.primaryImage,
+        publicId: existingVehicle.primaryImagePublicId,
+      }).catch(() => {
+        // Keep the saved vehicle even if the previous image cleanup fails.
+      });
+    }
   } catch {
-    redirect(currentSlug ? `/ops/fleet/${currentSlug}?error=save` : "/ops/fleet/new?error=save");
+    if (uploadedImage) {
+      await deleteVehicleImageAsset(uploadedImage).catch(() => {
+        // Best-effort cleanup for a freshly uploaded image on failed save.
+      });
+    }
+
+    redirect(buildVehicleErrorPath(currentSlug, errorType));
   }
 
   redirect(`/ops/fleet/${redirectSlug}`);
@@ -198,7 +289,13 @@ export async function deleteVehicleAction(formData: FormData) {
   const vehicleSlug = readString(formData, "vehicleSlug");
 
   try {
-    await deleteVehicle({ vehicleSlug });
+    const vehicle = await deleteVehicle({ vehicleSlug });
+    await deleteVehicleImageAsset({
+      src: vehicle.primaryImage,
+      publicId: vehicle.primaryImagePublicId,
+    }).catch(() => {
+      // Keep the deletion successful even if remote cleanup fails.
+    });
   } catch {
     redirect(`/ops/fleet/${vehicleSlug}?error=delete`);
   }

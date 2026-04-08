@@ -74,6 +74,7 @@ export type OpsVehicleSaveValues = {
   depositAmount: number;
   includedMileageKmPerDay: number;
   primaryImage: string;
+  primaryImagePublicId?: string | null;
   editorialNote: string;
   opsStatus: OpsVehicleStatus;
   slug?: string;
@@ -564,6 +565,7 @@ export async function saveVehicle(input: {
         nextNote,
       ),
       primaryImage: input.values.primaryImage,
+      primaryImagePublicId: input.values.primaryImagePublicId ?? null,
       gallery:
         (input.values.gallery?.length ?? 0) > 0
           ? (input.values.gallery ?? [])
@@ -1076,6 +1078,7 @@ function createSeedStore(now: Date = new Date()): OpsStoreSnapshot {
       includedMileageKmPerDay: motorcycle.includedMileageKmPerDay,
       description: motorcycle.description,
       primaryImage: motorcycle.primaryImage,
+      primaryImagePublicId: null,
       gallery: motorcycle.gallery,
       monogram: motorcycle.monogram,
       heroTag: motorcycle.heroTag,
@@ -1109,6 +1112,24 @@ function createSeedStore(now: Date = new Date()): OpsStoreSnapshot {
 }
 
 function normalizeStore(store: OpsStoreSnapshot, now: Date = new Date()) {
+  let vehicleChanged = false;
+  const nextVehicles = store.vehicles.map((vehicle) => {
+    const nextPrimaryImagePublicId =
+      typeof vehicle.primaryImagePublicId === "string"
+        ? vehicle.primaryImagePublicId
+        : null;
+
+    if (nextPrimaryImagePublicId === vehicle.primaryImagePublicId) {
+      return vehicle;
+    }
+
+    vehicleChanged = true;
+    return {
+      ...vehicle,
+      primaryImagePublicId: nextPrimaryImagePublicId,
+    };
+  });
+
   const nextReservations = store.reservations.filter((reservation) => {
     if (reservation.status !== "pending" && reservation.status !== "confirmed") {
       return false;
@@ -1145,6 +1166,7 @@ function normalizeStore(store: OpsStoreSnapshot, now: Date = new Date()) {
   });
 
   const changed =
+    vehicleChanged ||
     nextReservations.length !== store.reservations.length ||
     nextBlocks.length !== store.vehicleBlocks.length;
 
@@ -1153,6 +1175,7 @@ function normalizeStore(store: OpsStoreSnapshot, now: Date = new Date()) {
     store: changed
       ? {
           ...store,
+          vehicles: nextVehicles,
           reservations: nextReservations,
           vehicleBlocks: nextBlocks,
         }

@@ -16,6 +16,7 @@ create table if not exists ops_vehicles (
   included_mileage_km_per_day integer not null,
   description text not null,
   primary_image text not null,
+  primary_image_public_id text,
   gallery jsonb not null default '[]'::jsonb,
   monogram text not null,
   hero_tag text not null,

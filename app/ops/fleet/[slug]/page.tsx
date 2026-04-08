@@ -130,14 +130,12 @@ export default async function OpsFleetDetailPage({
         className="pt-0"
         density="compact"
       >
-        {error === "save" ? (
-          <div className="mb-4 border border-warning/20 bg-warning/8 px-4 py-3 text-sm text-foreground/80">
-            Les changements n&apos;ont pas pu etre enregistres.
-          </div>
-        ) : null}
-
         <div className="border-y border-border/60 py-5">
-          <OpsVehicleForm vehicle={vehicleEntry.vehicle} showBackLink={false} />
+          <OpsVehicleForm
+            vehicle={vehicleEntry.vehicle}
+            error={error}
+            showBackLink={false}
+          />
         </div>
       </Section>
 

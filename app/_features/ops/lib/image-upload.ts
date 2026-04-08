@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const FLEET_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "fleet");
@@ -12,30 +12,38 @@ type CloudinaryConfig = {
   folder: string;
 };
 
-export async function replaceVehicleImage(input: {
+export type UploadedVehicleImage = {
+  src: string;
+  publicId: string | null;
+};
+
+export async function uploadVehicleImage(input: {
   file: File;
   slugHint?: string;
-  currentSrc?: string;
-}) {
+}): Promise<UploadedVehicleImage> {
   assertUploadConstraints(input.file);
 
   if (hasCloudinaryConfig()) {
-    return replaceVehicleImageInCloudinary(input);
+    return uploadVehicleImageToCloudinary(input);
   }
 
   if (process.env.NODE_ENV === "production") {
     throw new Error("Object storage is not configured.");
   }
 
-  return replaceVehicleImageLocally(input);
+  return uploadVehicleImageLocally(input);
 }
 
-export async function removeVehicleImage(input: {
-  slugHint?: string;
-  currentSrc?: string;
+export async function deleteVehicleImageAsset(input: {
+  src?: string;
+  publicId?: string | null;
 }) {
+  if (!input.src && !input.publicId) {
+    return;
+  }
+
   if (hasCloudinaryConfig()) {
-    await removeCloudinaryImage(input.currentSrc);
+    await removeCloudinaryImage(input);
     return;
   }
 
@@ -56,11 +64,10 @@ function assertUploadConstraints(file: File) {
   }
 }
 
-async function replaceVehicleImageInCloudinary(input: {
+async function uploadVehicleImageToCloudinary(input: {
   file: File;
   slugHint?: string;
-  currentSrc?: string;
-}) {
+}): Promise<UploadedVehicleImage> {
   const config = getCloudinaryConfig();
   const safeSlug = normalizeUploadSegment(input.slugHint ?? "") || "vehicule";
   const publicId = `${config.folder}/${safeSlug}-${randomUUID()}`;
@@ -80,16 +87,14 @@ async function replaceVehicleImageInCloudinary(input: {
   formData.append("public_id", publicId);
   formData.append("signature", signature);
 
-  const response = await fetch(
-    buildCloudinaryUploadUrl(config.cloudName),
-    {
-      method: "POST",
-      body: formData,
-    },
-  );
+  const response = await fetch(buildCloudinaryUploadUrl(config.cloudName), {
+    method: "POST",
+    body: formData,
+  });
 
   const payload = (await response.json().catch(() => null)) as
     | {
+        public_id?: string;
         secure_url?: string;
       }
     | null;
@@ -98,15 +103,17 @@ async function replaceVehicleImageInCloudinary(input: {
     throw new Error("Cloudinary upload failed.");
   }
 
-  await removeCloudinaryImage(input.currentSrc).catch(() => {
-    // Keep the new upload even if the previous image cannot be deleted.
-  });
-
-  return payload.secure_url;
+  return {
+    src: payload.secure_url,
+    publicId: payload.public_id ?? publicId,
+  };
 }
 
-async function removeCloudinaryImage(currentSrc: string | undefined) {
-  const publicId = getCloudinaryPublicId(currentSrc);
+async function removeCloudinaryImage(input: {
+  src?: string;
+  publicId?: string | null;
+}) {
+  const publicId = input.publicId || getCloudinaryPublicId(input.src);
   if (!publicId) {
     return;
   }
@@ -127,13 +134,10 @@ async function removeCloudinaryImage(currentSrc: string | undefined) {
   formData.append("timestamp", timestamp);
   formData.append("signature", signature);
 
-  const response = await fetch(
-    buildCloudinaryDestroyUrl(config.cloudName),
-    {
-      method: "POST",
-      body: formData,
-    },
-  );
+  const response = await fetch(buildCloudinaryDestroyUrl(config.cloudName), {
+    method: "POST",
+    body: formData,
+  });
 
   if (!response.ok) {
     throw new Error("Cloudinary destroy failed.");
@@ -222,66 +226,38 @@ function getCloudinaryPublicId(src: string | undefined) {
   }
 }
 
-async function replaceVehicleImageLocally(input: {
+async function uploadVehicleImageLocally(input: {
   file: File;
   slugHint?: string;
-  currentSrc?: string;
-}) {
+}): Promise<UploadedVehicleImage> {
   const extension = resolveImageExtension(input.file);
-  const vehicleSlug = normalizeUploadSegment(input.slugHint ?? "");
-  const safeSlug = vehicleSlug || "vehicule";
-  const filename = `${safeSlug}${extension}`;
+  const safeSlug = normalizeUploadSegment(input.slugHint ?? "") || "vehicule";
+  const filename = `${safeSlug}-${randomUUID()}${extension}`;
   const buffer = Buffer.from(await input.file.arrayBuffer());
 
   await mkdir(FLEET_UPLOAD_DIR, { recursive: true });
-  await removeVehicleImageLocally({
-    slugHint: safeSlug,
-    currentSrc: input.currentSrc,
-  });
   await writeFile(path.join(FLEET_UPLOAD_DIR, filename), buffer);
 
-  return `/uploads/fleet/${filename}`;
+  return {
+    src: `/uploads/fleet/${filename}`,
+    publicId: null,
+  };
 }
 
 async function removeVehicleImageLocally(input: {
-  slugHint?: string;
-  currentSrc?: string;
+  src?: string;
+  publicId?: string | null;
 }) {
-  await mkdir(FLEET_UPLOAD_DIR, { recursive: true });
-
-  const candidates = new Set<string>();
-  const safeSlug = normalizeUploadSegment(input.slugHint ?? "");
-  if (safeSlug) {
-    const files = await readdir(FLEET_UPLOAD_DIR);
-    for (const file of files) {
-      if (file === ".DS_Store") {
-        continue;
-      }
-
-      if (
-        file === safeSlug ||
-        file.startsWith(`${safeSlug}.`) ||
-        file.startsWith(`${safeSlug}-`)
-      ) {
-        candidates.add(path.join(FLEET_UPLOAD_DIR, file));
-      }
-    }
+  const currentPath = resolveCurrentImagePath(input.src);
+  if (!currentPath) {
+    return;
   }
 
-  const currentPath = resolveCurrentImagePath(input.currentSrc);
-  if (currentPath) {
-    candidates.add(currentPath);
+  try {
+    await rm(currentPath, { force: true });
+  } catch {
+    // Ignore missing or already removed files.
   }
-
-  await Promise.all(
-    Array.from(candidates).map(async (filePath) => {
-      try {
-        await rm(filePath, { force: true });
-      } catch {
-        // Ignore missing or already removed files.
-      }
-    }),
-  );
 }
 
 function resolveCurrentImagePath(src: string | undefined) {

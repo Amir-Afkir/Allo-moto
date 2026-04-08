@@ -32,11 +32,15 @@ npm run optimize:images
 Le projet supporte deux modes :
 
 - `local/dev` : fallback JSON local pour travailler sans base distante
-- `production` : Postgres obligatoire pour le store ops et Cloudinary recommande pour les uploads
+- `production` : Postgres obligatoire pour le store ops et Cloudinary obligatoire pour les uploads ops
 
 En production, les lectures/écritures du parc et des reservations passent par Postgres. Au premier démarrage avec `DATABASE_URL`, la base est initialisée automatiquement puis seedée depuis `data/ops-store.json` si les tables sont vides.
 
-Les uploads ops utilisent Cloudinary quand les variables `CLOUDINARY_*` sont présentes. Sans cette configuration, les uploads sont refusés en production.
+Les uploads ops utilisent Cloudinary quand les variables `CLOUDINARY_*` sont presentes. Sans cette configuration, les uploads sont refuses en production.
+
+Dans l'admin ops, la selection d'une image n'upload plus rien immediatement. L'interface affiche un apercu local dans le navigateur, puis l'upload final n'a lieu qu'au clic sur `Enregistrer`. L'ancienne image active n'est supprimee qu'apres une sauvegarde reussie du vehicule.
+
+Cette approche evite les images orphelines en cas d'abandon avant sauvegarde. Il n'y a donc pas de dossier `tmp` ni de cron de nettoyage a maintenir pour ce workflow.
 
 Le schéma SQL de référence est fourni dans `db/schema.sql`.
 

@@ -38,6 +38,7 @@ export type OpsVehicleRecord = {
   includedMileageKmPerDay: number;
   description: string;
   primaryImage: string;
+  primaryImagePublicId: string | null;
   gallery: readonly string[];
   monogram: string;
   heroTag: string;

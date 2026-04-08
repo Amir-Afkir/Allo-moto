@@ -39,6 +39,7 @@ type VehicleRow = {
   included_mileage_km_per_day: number;
   description: string;
   primary_image: string;
+  primary_image_public_id: string | null;
   gallery: unknown;
   monogram: string;
   hero_tag: string;
@@ -213,6 +214,7 @@ async function createSchema(sql: OpsDbExecutor) {
       included_mileage_km_per_day integer not null,
       description text not null,
       primary_image text not null,
+      primary_image_public_id text,
       gallery jsonb not null default '[]'::jsonb,
       monogram text not null,
       hero_tag text not null,
@@ -224,6 +226,10 @@ async function createSchema(sql: OpsDbExecutor) {
       updated_at text not null,
       sort_order integer not null
     )
+  `;
+  await sql`
+    alter table ops_vehicles
+    add column if not exists primary_image_public_id text
   `;
 
   await sql`
@@ -361,6 +367,7 @@ async function replaceSnapshot(sql: OpsDbExecutor, store: OpsStoreSnapshot) {
         included_mileage_km_per_day,
         description,
         primary_image,
+        primary_image_public_id,
         gallery,
         monogram,
         hero_tag,
@@ -390,6 +397,7 @@ async function replaceSnapshot(sql: OpsDbExecutor, store: OpsStoreSnapshot) {
         ${vehicle.includedMileageKmPerDay},
         ${vehicle.description},
         ${vehicle.primaryImage},
+        ${vehicle.primaryImagePublicId},
         ${JSON.stringify(vehicle.gallery)}::jsonb,
         ${vehicle.monogram},
         ${vehicle.heroTag},
@@ -532,6 +540,7 @@ function mapVehicleRow(row: VehicleRow): OpsVehicleRecord {
     includedMileageKmPerDay: row.included_mileage_km_per_day,
     description: row.description,
     primaryImage: row.primary_image,
+    primaryImagePublicId: row.primary_image_public_id,
     gallery: parseStringArray(row.gallery),
     monogram: row.monogram,
     heroTag: row.hero_tag,
@@ -623,7 +632,10 @@ async function readSeedStore(): Promise<OpsStoreSnapshot> {
     ) {
       return {
         version: OPS_STORE_VERSION,
-        vehicles: parsed.vehicles as OpsVehicleRecord[],
+        vehicles: (parsed.vehicles as OpsVehicleRecord[]).map((vehicle) => ({
+          ...vehicle,
+          primaryImagePublicId: vehicle.primaryImagePublicId ?? null,
+        })),
         reservations: parsed.reservations as OpsReservationRecord[],
         vehicleBlocks: parsed.vehicleBlocks as OpsVehicleBlockRecord[],
       };
@@ -656,6 +668,7 @@ function createCatalogSeedStore(now: Date = new Date()): OpsStoreSnapshot {
       includedMileageKmPerDay: motorcycle.includedMileageKmPerDay,
       description: motorcycle.description,
       primaryImage: motorcycle.primaryImage,
+      primaryImagePublicId: null,
       gallery: motorcycle.gallery,
       monogram: motorcycle.monogram,
       heroTag: motorcycle.heroTag,

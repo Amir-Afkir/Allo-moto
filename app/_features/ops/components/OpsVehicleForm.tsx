@@ -20,12 +20,20 @@ export function OpsVehicleForm({
   showBackLink?: boolean;
 }) {
   return (
-    <form action={saveVehicleAction} className="space-y-6">
+    <form
+      action={saveVehicleAction}
+      encType="multipart/form-data"
+      className="space-y-6"
+    >
       <input type="hidden" name="currentSlug" value={vehicle?.slug ?? ""} />
 
       {error === "save" ? (
         <div className="border border-warning/20 bg-warning/8 px-4 py-3 text-sm text-foreground/80">
           Les changements n&apos;ont pas pu etre enregistres. Verifiez les champs obligatoires.
+        </div>
+      ) : error === "image" ? (
+        <div className="border border-warning/20 bg-warning/8 px-4 py-3 text-sm text-foreground/80">
+          L&apos;image n&apos;a pas pu etre appliquee. Verifiez le fichier puis reenregistrez.
         </div>
       ) : null}
 
@@ -105,7 +113,6 @@ export function OpsVehicleForm({
           <Field label="Image principale">
             <OpsVehicleImageField
               initialValue={vehicle?.primaryImage ?? ""}
-              slugHint={vehicle?.slug ?? ""}
               vehicleLabel={`${vehicle?.brand ?? ""} ${vehicle?.name ?? ""}`.trim() || "Vehicule"}
             />
           </Field>

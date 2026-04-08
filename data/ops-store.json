@@ -290,40 +290,7 @@
       "updatedAt": "2026-04-04T18:58:17.843Z"
     }
   ],
-  "reservations": [
-    {
-      "id": "reservation-mnkt0ips-uone8n",
-      "reference": "AM-HOND-T0IPS",
-      "vehicleSlug": "honda-forza-350",
-      "customerFirstName": "Amir",
-      "customerLastName": "AFKIR",
-      "customerEmail": "afkir202@gmail.com",
-      "customerPhone": "0641503886",
-      "customerCountry": "",
-      "customerPreferredContact": "whatsapp",
-      "permitType": "A1",
-      "permitNumber": "",
-      "documentType": "none",
-      "documentNumber": "",
-      "customerNotes": "",
-      "consentDataUse": true,
-      "pickupMode": "motorcycle-location",
-      "pickupLocationLabel": "Orléans • Centre-ville",
-      "pickupDate": "2026-04-05",
-      "returnDate": "2026-04-07",
-      "pickupAt": "2026-04-05T09:00:00.000Z",
-      "returnAt": "2026-04-07T17:00:00.000Z",
-      "totalDays": 3,
-      "dailyPrice": 49,
-      "estimatedTotal": 147,
-      "depositAmount": 600,
-      "paymentMode": "pickup",
-      "status": "confirmed",
-      "adminNote": "Reservation confirmee. Paiement au retrait.",
-      "createdAt": "2026-04-04T20:47:40.480Z",
-      "updatedAt": "2026-04-04T20:51:43.035Z"
-    }
-  ],
+  "reservations": [],
   "vehicleBlocks": [
     {
       "id": "seed-block-harley-street-bob",
@@ -335,17 +302,6 @@
       "note": "Bloquee hors ligne.",
       "createdAt": "2026-04-04T18:58:17.843Z",
       "updatedAt": "2026-04-04T18:58:17.843Z"
-    },
-    {
-      "id": "block-reservation-mnkt0ips-uone8n",
-      "vehicleSlug": "honda-forza-350",
-      "type": "reservation",
-      "startAt": "2026-04-05T09:00:00.000Z",
-      "endAt": "2026-04-07T17:00:00.000Z",
-      "reservationId": "reservation-mnkt0ips-uone8n",
-      "note": "Reservation confirmee AM-HOND-T0IPS",
-      "createdAt": "2026-04-04T20:51:43.035Z",
-      "updatedAt": "2026-04-04T20:51:43.035Z"
     }
   ]
 }
