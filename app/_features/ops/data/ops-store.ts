@@ -15,15 +15,12 @@ import type {
 import type {
   MotorcycleCategory,
   MotorcycleStatus,
-  Money,
   Transmission,
 } from "@/app/_features/catalog/data/rental-domain";
 import {
   evaluateReservation,
   calculateReservationDuration,
-  type PermitSelection,
   type ReservationDraft,
-  type ReservationPickupMode,
 } from "@/app/_features/reservation/data/reservation";
 import {
   type PlanningAvailabilityBlock,
@@ -32,92 +29,38 @@ import {
 import {
   validateReservationClientDraft,
   type ReservationClientDraft,
-  type ReservationPreferredContact,
 } from "@/app/_features/reservation/data/reservation-intake";
+import {
+  hasOpsDatabase,
+  loadOpsDatabaseStore,
+  withOpsDatabaseStoreTransaction,
+} from "./ops-store-db";
+import {
+  OPS_STORE_VERSION,
+  type OpsReservationRecord,
+  type OpsReservationStatus,
+  type OpsStoreSnapshot,
+  type OpsVehicleBlockRecord,
+  type OpsVehicleBlockType,
+  type OpsVehicleRecord,
+  type OpsVehicleStatus,
+} from "./ops-store-types";
 
-const STORE_PATH = path.join(process.cwd(), "data", "ops-store.json");
-const STORE_VERSION = 1;
+export type {
+  OpsReservationRecord,
+  OpsReservationStatus,
+  OpsVehicleBlockRecord,
+  OpsVehicleBlockType,
+  OpsVehicleRecord,
+  OpsVehicleStatus,
+} from "./ops-store-types";
+
+const LOCAL_STORE_PATH = path.join(process.cwd(), "data", "ops-store.json");
 const DEFAULT_PICKUP_HOUR = 10;
 const DEFAULT_RETURN_HOUR = 18;
 const DELIVERY_PICKUP_HOUR = 9;
 const DELIVERY_RETURN_HOUR = 19;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
-
-export type OpsVehicleStatus = "active" | "hidden" | "maintenance";
-export type OpsReservationStatus = "pending" | "confirmed";
-export type OpsVehicleBlockType = "reservation" | "maintenance" | "manual_block";
-
-export type OpsVehicleRecord = {
-  id: string;
-  slug: string;
-  name: string;
-  brand: string;
-  model: string;
-  category: MotorcycleCategory;
-  transmission: Transmission;
-  licenseCategory: MotorcycleLicenseCategory;
-  locationLabel: string;
-  featured: boolean;
-  priceFrom: Money;
-  deposit: Money;
-  includedMileageKmPerDay: number;
-  description: string;
-  primaryImage: string;
-  gallery: readonly string[];
-  monogram: string;
-  heroTag: string;
-  editorialNote: string;
-  decisionTags: readonly string[];
-  visualTone: MotoVisualTone;
-  opsStatus: OpsVehicleStatus;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type OpsReservationRecord = {
-  id: string;
-  reference: string;
-  vehicleSlug: string;
-  customerFirstName: string;
-  customerLastName: string;
-  customerEmail: string;
-  customerPhone: string;
-  customerCountry: string;
-  customerPreferredContact: ReservationPreferredContact;
-  permitType: Exclude<PermitSelection, "none">;
-  permitNumber: string;
-  documentType: string;
-  documentNumber: string;
-  customerNotes: string;
-  consentDataUse: boolean;
-  pickupMode: ReservationPickupMode;
-  pickupLocationLabel: string;
-  pickupDate: string;
-  returnDate: string;
-  pickupAt: string;
-  returnAt: string;
-  totalDays: number;
-  dailyPrice: number;
-  estimatedTotal: number;
-  depositAmount: number;
-  paymentMode: "pickup";
-  status: OpsReservationStatus;
-  adminNote: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type OpsVehicleBlockRecord = {
-  id: string;
-  vehicleSlug: string;
-  type: OpsVehicleBlockType;
-  startAt: string;
-  endAt: string;
-  reservationId: string | null;
-  note: string;
-  createdAt: string;
-  updatedAt: string;
-};
 
 export type OpsVehicleSaveValues = {
   name: string;
@@ -141,13 +84,6 @@ export type OpsVehicleSaveValues = {
   heroTag?: string;
   decisionTags?: string[];
   visualTone?: MotoVisualTone;
-};
-
-type OpsStore = {
-  version: number;
-  vehicles: OpsVehicleRecord[];
-  reservations: OpsReservationRecord[];
-  vehicleBlocks: OpsVehicleBlockRecord[];
 };
 
 export type AdminVehicleRow = {
@@ -853,7 +789,7 @@ export async function removeVehicleBlock(input: { blockId: string }) {
 
 function buildCatalogMotorcycle(
   vehicle: OpsVehicleRecord,
-  store: OpsStore,
+  store: OpsStoreSnapshot,
   now: Date,
 ): CatalogMotorcycle {
   const currentBlocks = getCurrentVehicleBlocks(store, vehicle.slug, now);
@@ -923,7 +859,7 @@ function getAvailabilityCopy(status: MotorcycleStatus) {
 }
 
 function getCurrentVehicleBlocks(
-  store: OpsStore,
+  store: OpsStoreSnapshot,
   vehicleSlug: string,
   now: Date,
 ) {
@@ -1004,58 +940,126 @@ function toPlanningAvailabilityBlock(
   };
 }
 
-async function updateStore<T>(mutate: (store: OpsStore) => Promise<T> | T) {
-  const store = await readStore();
+async function updateStore<T>(
+  mutate: (store: OpsStoreSnapshot) => Promise<T> | T,
+) {
+  if (hasOpsDatabase()) {
+    return withOpsDatabaseStoreTransaction(async (store, persist) => {
+      const normalized = normalizeStore(store);
+      const workingStore = normalized.store;
+
+      if (normalized.changed) {
+        await persist(workingStore);
+      }
+
+      const result = await mutate(workingStore);
+      await persist(workingStore);
+
+      return result;
+    });
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "DATABASE_URL is required in production for mutable ops-store operations.",
+    );
+  }
+
+  const store = await readLocalStore();
   const result = await mutate(store);
-  await writeStore(store);
+  await writeLocalStore(store);
   return result;
 }
 
-async function readStore(): Promise<OpsStore> {
-  await ensureStoreFile();
+async function readStore(): Promise<OpsStoreSnapshot> {
+  if (hasOpsDatabase()) {
+    const store = await loadOpsDatabaseStore();
+    const normalized = normalizeStore(store);
 
-  const raw = await readFile(STORE_PATH, "utf8");
-  const parsed = JSON.parse(raw) as OpsStore;
-
-  if (
-    parsed &&
-    parsed.version === STORE_VERSION &&
-    Array.isArray(parsed.vehicles) &&
-    Array.isArray(parsed.reservations) &&
-    Array.isArray(parsed.vehicleBlocks)
-  ) {
-    const normalized = normalizeStore(parsed);
-    if (normalized.changed) {
-      await writeStore(normalized.store);
+    if (!normalized.changed) {
+      return normalized.store;
     }
-    return normalized.store;
+
+    return withOpsDatabaseStoreTransaction(async (currentStore, persist) => {
+      const nextNormalized = normalizeStore(currentStore);
+
+      if (nextNormalized.changed) {
+        await persist(nextNormalized.store);
+      }
+
+      return nextNormalized.store;
+    });
+  }
+
+  return readLocalStore({
+    persistNormalization: process.env.NODE_ENV !== "production",
+  });
+}
+
+async function readLocalStore(options?: {
+  persistNormalization?: boolean;
+}): Promise<OpsStoreSnapshot> {
+  await ensureLocalStoreFile(options);
+
+  try {
+    const raw = await readFile(LOCAL_STORE_PATH, "utf8");
+    const parsed = JSON.parse(raw) as OpsStoreSnapshot;
+
+    if (
+      parsed &&
+      parsed.version === OPS_STORE_VERSION &&
+      Array.isArray(parsed.vehicles) &&
+      Array.isArray(parsed.reservations) &&
+      Array.isArray(parsed.vehicleBlocks)
+    ) {
+      const normalized = normalizeStore(parsed);
+      if (normalized.changed && options?.persistNormalization !== false) {
+        await writeLocalStore(normalized.store);
+      }
+      return normalized.store;
+    }
+  } catch {
+    // Fall back to the bundled seed below.
   }
 
   const seed = createSeedStore();
-  await writeStore(seed);
+  if (options?.persistNormalization !== false) {
+    await writeLocalStore(seed);
+  }
   return seed;
 }
 
-async function ensureStoreFile() {
-  const directory = path.dirname(STORE_PATH);
-  await mkdir(directory, { recursive: true });
+async function ensureLocalStoreFile(options?: {
+  persistNormalization?: boolean;
+}) {
+  const directory = path.dirname(LOCAL_STORE_PATH);
+
+  if (options?.persistNormalization !== false) {
+    await mkdir(directory, { recursive: true });
+  }
 
   try {
-    await readFile(STORE_PATH, "utf8");
+    await readFile(LOCAL_STORE_PATH, "utf8");
   } catch {
-    await writeStore(createSeedStore());
+    if (options?.persistNormalization === false) {
+      return;
+    }
+
+    await writeLocalStore(createSeedStore());
   }
 }
 
-async function writeStore(store: OpsStore) {
-  await writeFile(STORE_PATH, JSON.stringify(store, null, 2), "utf8");
+async function writeLocalStore(store: OpsStoreSnapshot) {
+  const directory = path.dirname(LOCAL_STORE_PATH);
+  await mkdir(directory, { recursive: true });
+  await writeFile(LOCAL_STORE_PATH, JSON.stringify(store, null, 2), "utf8");
 }
 
-function createSeedStore(now: Date = new Date()): OpsStore {
+function createSeedStore(now: Date = new Date()): OpsStoreSnapshot {
   const nowIso = now.toISOString();
 
   return {
-    version: STORE_VERSION,
+    version: OPS_STORE_VERSION,
     vehicles: MOTORCYCLE_CATALOG.map((motorcycle) => ({
       id: `vehicle-${motorcycle.slug}`,
       slug: motorcycle.slug,
@@ -1104,7 +1108,7 @@ function createSeedStore(now: Date = new Date()): OpsStore {
   };
 }
 
-function normalizeStore(store: OpsStore, now: Date = new Date()) {
+function normalizeStore(store: OpsStoreSnapshot, now: Date = new Date()) {
   const nextReservations = store.reservations.filter((reservation) => {
     if (reservation.status !== "pending" && reservation.status !== "confirmed") {
       return false;
@@ -1198,7 +1202,7 @@ function buildVehicleActionLabel({
   return "Libre aujourd'hui.";
 }
 
-function getMaintenanceVehicleCount(store: OpsStore, now: Date) {
+function getMaintenanceVehicleCount(store: OpsStoreSnapshot, now: Date) {
   const vehicleSlugs = new Set(
     store.vehicles
       .filter((vehicle) => vehicle.opsStatus === "maintenance")

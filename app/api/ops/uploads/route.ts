@@ -10,34 +10,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const formData = await request.formData();
-  const intent = formData.get("intent");
-  const upload = formData.get("file");
-  const slugHint = formData.get("slugHint");
-  const currentSrc = formData.get("currentSrc");
+  try {
+    const formData = await request.formData();
+    const intent = formData.get("intent");
+    const upload = formData.get("file");
+    const slugHint = formData.get("slugHint");
+    const currentSrc = formData.get("currentSrc");
 
-  if (intent === "remove") {
-    await removeVehicleImage({
+    if (intent === "remove") {
+      await removeVehicleImage({
+        slugHint: typeof slugHint === "string" ? slugHint : "",
+        currentSrc: typeof currentSrc === "string" ? currentSrc : "",
+      });
+
+      return NextResponse.json({ src: null });
+    }
+
+    if (!(upload instanceof File) || upload.size === 0) {
+      return NextResponse.json({ error: "missing_file" }, { status: 400 });
+    }
+
+    if (!upload.type.startsWith("image/")) {
+      return NextResponse.json({ error: "invalid_file" }, { status: 400 });
+    }
+
+    const src = await replaceVehicleImage({
+      file: upload,
       slugHint: typeof slugHint === "string" ? slugHint : "",
       currentSrc: typeof currentSrc === "string" ? currentSrc : "",
     });
 
-    return NextResponse.json({ src: null });
+    return NextResponse.json({ src });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : "image_upload_failed",
+      },
+      { status: 500 },
+    );
   }
-
-  if (!(upload instanceof File) || upload.size === 0) {
-    return NextResponse.json({ error: "missing_file" }, { status: 400 });
-  }
-
-  if (!upload.type.startsWith("image/")) {
-    return NextResponse.json({ error: "invalid_file" }, { status: 400 });
-  }
-
-  const src = await replaceVehicleImage({
-    file: upload,
-    slugHint: typeof slugHint === "string" ? slugHint : "",
-    currentSrc: typeof currentSrc === "string" ? currentSrc : "",
-  });
-
-  return NextResponse.json({ src });
 }

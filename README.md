@@ -7,14 +7,14 @@ Application Next.js pour `Allo Moto`, centrée sur 4 surfaces actives :
 - fiches moto
 - tunnel de reservation
 
-Le repo utilise l'App Router de Next.js. Le code legacy de l'ancien site a ete retire du runtime pour ne garder que les parcours encore utiles au produit.
-
 ## Stack
 
 - Next.js 15
 - React 19
 - TypeScript strict
 - Tailwind CSS 4
+- Postgres via `DATABASE_URL` pour le parc et les reservations
+- Cloudinary pour les images ops
 - Mapbox GL pour la carte de support
 
 ## Scripts
@@ -27,25 +27,43 @@ npm run build
 npm run optimize:images
 ```
 
-## Structure
+## Persistance
 
-```text
-app/
-  page.tsx                 accueil Allo Moto
-  motos/                   catalogue et fiches
-  reserver/                tunnel de reservation
-  components/              composants UI et layout
-  data/                    donnees et logique metier
-  api/
-    payments/session/      ouverture de session de paiement
+Le projet supporte deux modes :
+
+- `local/dev` : fallback JSON local pour travailler sans base distante
+- `production` : Postgres obligatoire pour le store ops et Cloudinary recommande pour les uploads
+
+En production, les lectures/écritures du parc et des reservations passent par Postgres. Au premier démarrage avec `DATABASE_URL`, la base est initialisée automatiquement puis seedée depuis `data/ops-store.json` si les tables sont vides.
+
+Les uploads ops utilisent Cloudinary quand les variables `CLOUDINARY_*` sont présentes. Sans cette configuration, les uploads sont refusés en production.
+
+Le schéma SQL de référence est fourni dans `db/schema.sql`.
+
+## Variables d'environnement
+
+Copie `.env.example` et renseigne au minimum :
+
+```bash
+DATABASE_URL=...
+ADMIN_USERNAME=...
+ADMIN_PASSWORD=...
+ADMIN_SESSION_SECRET=...
+
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
+CLOUDINARY_UPLOAD_FOLDER=allo-moto/fleet
 ```
 
-## Points d'attention
+## Déploiement Netlify
 
-- Le tunnel de reservation contient encore une logique de session de paiement interne a brancher sur un vrai prestataire si tu veux une confirmation de paiement reelle.
-- `robots.txt` ne publie pas encore de sitemap tant que le domaine canonique n'est pas fixe.
+1. Ajoute `DATABASE_URL` dans les variables d'environnement Netlify.
+2. Ajoute les variables `CLOUDINARY_*` pour les uploads d'images ops.
+3. Redéploie le site.
+4. Au premier hit, les tables Postgres sont créées et seedées automatiquement si elles sont vides.
 
-## Verification locale
+## Vérification locale
 
 Avant merge :
 
