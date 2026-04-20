@@ -91,7 +91,7 @@ export default function FooterDiscoverLinks({
         <ul className="grid gap-2 min-[390px]:grid-cols-2 lg:grid-cols-1">
           {navItems.map((item) => (
             <li key={item.href}>
-              <FooterLink href={item.href} label={item.label} />
+              <FooterLink href={item.href} label={item.label} variant="quiet" />
             </li>
           ))}
         </ul>
