@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import MobileStickyCTA from "@/app/_features/catalog/components/MobileStickyCTA";
 import { MotorcycleVisual } from "@/app/_features/catalog/components/MotorcycleVisual";
 import {
   getMotorcycleDetailContent,
@@ -15,8 +17,8 @@ import {
   type CatalogMotorcycle,
 } from "@/app/_features/catalog/data/motorcycles";
 import {
-  getPlanningContext,
   getPublicCatalog,
+  getPublicMotorcycleDetailPageData,
   getPublicMotorcycleBySlug,
 } from "@/app/_features/ops/data/ops-store";
 import Section from "@/app/_shared/components/Section";
@@ -29,7 +31,15 @@ type MotoDetailPageProps = {
   params: Promise<{ slug: string }>;
 };
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
+
+export async function generateStaticParams() {
+  const motorcycles = await getPublicCatalog();
+
+  return motorcycles.map((motorcycle) => ({
+    slug: motorcycle.slug,
+  }));
+}
 
 export async function generateMetadata({ params }: MotoDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -50,11 +60,8 @@ export async function generateMetadata({ params }: MotoDetailPageProps): Promise
 
 export default async function MotoDetailPage({ params }: MotoDetailPageProps) {
   const { slug } = await params;
-  const [motorcycle, catalog, planning] = await Promise.all([
-    getPublicMotorcycleBySlug(slug),
-    getPublicCatalog(),
-    getPlanningContext(),
-  ]);
+  const { motorcycle, catalog, planning } =
+    await getPublicMotorcycleDetailPageData(slug);
   const content = motorcycle ? getMotorcycleDetailContent(slug) : null;
 
   if (!motorcycle) {
@@ -73,6 +80,7 @@ export default async function MotoDetailPage({ params }: MotoDetailPageProps) {
     .filter(Boolean) as CatalogMotorcycle[];
 
   return (
+    <>
     <main className="app-shell">
       <section className="section-shell pt-0">
         <div className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -211,6 +219,13 @@ export default async function MotoDetailPage({ params }: MotoDetailPageProps) {
         </Section>
       ) : null}
     </main>
+    <Suspense fallback={null}>
+      <MobileStickyCTA
+        motorcycleSlug={motorcycle.slug}
+        motorcycleLabel={`${motorcycle.brand} ${motorcycle.name}`}
+      />
+    </Suspense>
+    </>
   );
 }
 

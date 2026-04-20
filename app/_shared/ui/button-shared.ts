@@ -24,8 +24,8 @@ export const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
     "focus-visible:ring-brand/35",
   ].join(" "),
   accent: [
-    "border border-brand/20 bg-[linear-gradient(135deg,var(--brand),var(--brand-strong))] text-background shadow-[0_16px_30px_rgba(166,82,36,0.24)]",
-    "hover:-translate-y-px hover:shadow-[0_20px_40px_rgba(166,82,36,0.26)]",
+    "border border-brand-700/20 bg-[linear-gradient(135deg,var(--brand-600),var(--brand-700))] text-background shadow-[0_16px_30px_rgba(127,60,24,0.24)]",
+    "hover:-translate-y-px hover:shadow-[0_20px_40px_rgba(127,60,24,0.26)]",
     "focus-visible:ring-brand/45",
   ].join(" "),
 };

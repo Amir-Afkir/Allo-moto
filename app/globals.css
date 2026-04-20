@@ -6,7 +6,7 @@
   --surface: #fffaf4;
   --surface-elevated: #f3e8db;
   --border: rgba(43, 30, 20, 0.12);
-  --header-offset: 8rem;
+  --header-offset: 6.25rem;
   --header-clearance: 0.5rem;
   --chrome-offset: calc(var(--header-offset) + var(--header-clearance));
 
@@ -113,6 +113,15 @@ body {
     top: var(--chrome-offset);
   }
 
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   .section-shell {
     width: 100%;
     max-width: 80rem;
@@ -123,6 +132,15 @@ body {
 
   .section-shell-compact {
     padding-block: 2.75rem;
+  }
+
+  .section-deferred {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 44rem;
+  }
+
+  .section-deferred-tall {
+    contain-intrinsic-size: auto 52rem;
   }
 
   .app-shell > .section-shell {
@@ -144,7 +162,7 @@ body {
       sans-serif;
     font-size: clamp(2rem, 4vw, 3.5rem);
     line-height: 0.95;
-    letter-spacing: -0.05em;
+    letter-spacing: -0.028em;
     font-weight: 700;
     text-wrap: balance;
     color: var(--foreground);
@@ -203,7 +221,7 @@ body {
     font-weight: 700;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--brand);
+    color: var(--brand-600);
   }
 
   .meta-label {
@@ -348,6 +366,10 @@ body {
     .app-shell,
     .section-shell {
       padding-inline: 2rem;
+    }
+
+    .section-title {
+      letter-spacing: -0.05em;
     }
   }
 }

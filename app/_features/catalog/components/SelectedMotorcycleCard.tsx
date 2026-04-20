@@ -20,11 +20,6 @@ type SelectedMotorcycleCardProps = {
   className?: string;
 };
 
-type SelectedMotorcycleFactProps = {
-  label: string;
-  value: ReactNode;
-};
-
 export function SelectedMotorcycleCard({
   motorcycle,
   status,
@@ -125,15 +120,6 @@ export function SelectedMotorcycleCard({
 
         {footerNote ? <div className="text-xs text-muted-foreground">{footerNote}</div> : null}
       </div>
-    </div>
-  );
-}
-
-export function SelectedMotorcycleFact({ label, value }: SelectedMotorcycleFactProps) {
-  return (
-    <div className="min-w-0 space-y-1.5">
-      <p className="meta-label text-[0.68rem] tracking-[0.16em]">{label}</p>
-      <p className="text-[0.94rem] font-semibold leading-tight text-foreground">{value}</p>
     </div>
   );
 }

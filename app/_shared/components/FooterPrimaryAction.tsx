@@ -27,12 +27,12 @@ export default function FooterPrimaryAction() {
         ariaLabel={action.primary.ariaLabel}
         variant="accent"
         size="md"
-        className="w-full sm:w-auto"
+        className="min-h-11 w-full sm:w-auto"
       >
         {action.primary.label}
       </ButtonLink>
-      <span className="text-xs font-medium leading-5 text-muted-foreground lg:text-right">
-        Support direct si besoin
+      <span className="max-w-[21rem] text-xs font-medium leading-5 text-muted-foreground lg:text-right">
+        Permis, dépôt ou retrait : on répond avant paiement.
       </span>
     </div>
   );

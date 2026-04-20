@@ -115,32 +115,6 @@ export type ReservationAvailability = {
   inventorySummary: string;
 };
 
-export type MotorcyclePlanningSummary = {
-  fleetStatus: FleetLifecycleStatus;
-  statusLabel: string;
-  statusTone: PlanningStatusTone;
-  nextAvailableLabel: string;
-  nextAvailableAt: string | null;
-  activeBlockLabel: string | null;
-};
-
-export type OperatorDashboardSnapshot = {
-  todayReservations: ReadonlyArray<PlanningReservationRecord>;
-  activeHolds: ReadonlyArray<PlanningReservationRecord>;
-  confirmedReservations: ReadonlyArray<PlanningReservationRecord>;
-  returnsToWatch: ReadonlyArray<PlanningReservationRecord>;
-  blockedReservations: ReadonlyArray<PlanningReservationRecord>;
-  motorcycleSummaries: ReadonlyArray<{
-    motorcycleSlug: string;
-    motorcycleLabel: string;
-    statusLabel: string;
-    statusTone: PlanningStatusTone;
-    nextAvailableLabel: string;
-  }>;
-};
-
-export const PLANNING_STORAGE_KEY = "allo-moto.reservation.planning-ledger";
-export const HOLD_DURATION_MINUTES = 15;
 const DEFAULT_BUFFER_BEFORE_MINUTES = 60;
 const DEFAULT_BUFFER_AFTER_MINUTES = 90;
 const DEFAULT_PICKUP_HOUR = 10;
@@ -154,43 +128,6 @@ const OPERATIONAL_CAPACITY = {
   return: 5,
   delivery: 2,
 } as const;
-
-export function loadPlanningReservations(): PlanningReservationRecord[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(PLANNING_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return sanitizePlanningReservations(parsed);
-  } catch {
-    return [];
-  }
-}
-
-export function savePlanningReservations(
-  reservations: ReadonlyArray<PlanningReservationRecord>,
-): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (reservations.length === 0) {
-    window.localStorage.removeItem(PLANNING_STORAGE_KEY);
-    return;
-  }
-
-  window.localStorage.setItem(PLANNING_STORAGE_KEY, JSON.stringify(reservations));
-}
 
 export function cleanupExpiredPlanningReservations(
   reservations: ReadonlyArray<PlanningReservationRecord>,
@@ -237,40 +174,6 @@ export function upsertPlanningReservation(
   );
 }
 
-export function updatePlanningReservationStatus(
-  reservations: ReadonlyArray<PlanningReservationRecord>,
-  reservationId: string,
-  updates: Partial<
-    Pick<
-      PlanningReservationRecord,
-      "reservationStatus" | "paymentStatus" | "holdExpiresAt" | "note" | "updatedAt"
-    >
-  >,
-): PlanningReservationRecord[] {
-  return reservations.map((reservation) =>
-    reservation.id === reservationId
-      ? {
-          ...reservation,
-          ...updates,
-          updatedAt: updates.updatedAt ?? new Date().toISOString(),
-        }
-      : reservation,
-  );
-}
-
-export function cancelPlanningReservation(
-  reservations: ReadonlyArray<PlanningReservationRecord>,
-  reservationId: string,
-  note = "Reservation liberee apres modification du parcours.",
-): PlanningReservationRecord[] {
-  return updatePlanningReservationStatus(reservations, reservationId, {
-    reservationStatus: "cancelled",
-    paymentStatus: "expired",
-    holdExpiresAt: null,
-    note,
-  });
-}
-
 export function findPlanningReservation(
   reservations: ReadonlyArray<PlanningReservationRecord>,
   reservationId: string | null | undefined,
@@ -287,84 +190,6 @@ export function getPlanningInventory(
   now: Date = new Date(),
 ): PlanningReservationRecord[] {
   return cleanupExpiredPlanningReservations(localReservations, now);
-}
-
-export function createHoldPlanningReservation({
-  reservationId,
-  motorcycle,
-  draft,
-  customerLabel,
-  paymentSessionId,
-  holdExpiresAt,
-}: {
-  reservationId: string;
-  motorcycle: CatalogMotorcycle;
-  draft: ReservationDraft;
-  customerLabel: string;
-  paymentSessionId: string;
-  holdExpiresAt: string | null;
-}): PlanningReservationRecord {
-  const window = getReservationWindow(draft);
-  const nowIso = new Date().toISOString();
-
-  return {
-    id: reservationId,
-    reference: buildReservationReference(motorcycle.slug),
-    motorcycleSlug: motorcycle.slug,
-    pickupAt: window.pickupAt,
-    returnAt: window.returnAt,
-    pickupMode: draft.pickupMode,
-    pickupLocationLabel:
-      draft.pickupMode === "delivery"
-        ? "Livraison a confirmer"
-        : motorcycle.locationLabel,
-    reservationStatus: "hold_payment",
-    paymentStatus: "precheckout_opened",
-    holdExpiresAt,
-    paymentSessionId,
-    customerLabel,
-    source: "local",
-    note: "Hold paiement actif.",
-    createdAt: nowIso,
-    updatedAt: nowIso,
-  };
-}
-
-export function createPendingValidationPlanningReservation({
-  reservationId,
-  motorcycle,
-  draft,
-  customerLabel,
-}: {
-  reservationId: string;
-  motorcycle: CatalogMotorcycle;
-  draft: ReservationDraft;
-  customerLabel: string;
-}): PlanningReservationRecord {
-  const window = getReservationWindow(draft);
-  const nowIso = new Date().toISOString();
-
-  return {
-    id: reservationId,
-    reference: buildReservationReference(motorcycle.slug),
-    motorcycleSlug: motorcycle.slug,
-    pickupAt: window.pickupAt,
-    returnAt: window.returnAt,
-    pickupMode: draft.pickupMode,
-    pickupLocationLabel:
-      draft.pickupMode === "delivery"
-        ? "Livraison a confirmer"
-        : motorcycle.locationLabel,
-    reservationStatus: "pending_validation",
-    paymentStatus: "none",
-    holdExpiresAt: null,
-    paymentSessionId: null,
-    customerLabel,
-    source: "local",
-    note: "Demande enregistree. Paiement au retrait.",
-    createdAt: nowIso,
-    updatedAt: nowIso,
-  };
 }
 
 export function evaluatePlanningAvailability({
@@ -490,162 +315,6 @@ export function evaluatePlanningAvailability({
   });
 }
 
-export function buildMotorcyclePlanningSummary({
-  motorcycle,
-  reservations,
-  blocks = [],
-  now = new Date(),
-}: {
-  motorcycle: CatalogMotorcycle;
-  reservations: ReadonlyArray<PlanningReservationRecord>;
-  blocks?: ReadonlyArray<PlanningAvailabilityBlock>;
-  now?: Date;
-}): MotorcyclePlanningSummary {
-  const fleetStatus = getFleetStatus(motorcycle);
-  const activeBlocks = buildCurrentMotorcycleBlocks({
-    motorcycle,
-    reservations,
-    blocks,
-    now,
-  });
-  const nextAvailableAt = activeBlocks.length
-    ? activeBlocks.reduce((latest, block) => {
-        const endAt = new Date(block.endAt).getTime();
-        return endAt > latest ? endAt : latest;
-      }, 0)
-    : null;
-
-  if (fleetStatus === "maintenance") {
-    return {
-      fleetStatus,
-      statusLabel: "Maintenance",
-      statusTone: "danger",
-      nextAvailableLabel: "Retour atelier a confirmer",
-      nextAvailableAt: null,
-      activeBlockLabel: "Maintenance flotte",
-    };
-  }
-
-  if (fleetStatus === "inactive") {
-    return {
-      fleetStatus,
-      statusLabel: "Inactive",
-      statusTone: "outline",
-      nextAvailableLabel: "Publication indisponible",
-      nextAvailableAt: null,
-      activeBlockLabel: "Sortie du catalogue",
-    };
-  }
-
-  if (fleetStatus === "blocked") {
-    return {
-      fleetStatus,
-      statusLabel: "Deja reservee",
-      statusTone: "warning",
-      nextAvailableLabel: "Retour a confirmer",
-      nextAvailableAt: null,
-      activeBlockLabel: "Reservation longue en cours",
-    };
-  }
-
-  if (activeBlocks.length === 0) {
-    return {
-      fleetStatus,
-      statusLabel: "Reservable",
-      statusTone: "success",
-      nextAvailableLabel: "Disponible sur le prochain creneau",
-      nextAvailableAt: null,
-      activeBlockLabel: null,
-    };
-  }
-
-  const primaryBlock = activeBlocks[0];
-
-  return {
-    fleetStatus,
-    statusLabel: primaryBlock.type === "hold" ? "Hold actif" : "Creneau bloque",
-    statusTone: primaryBlock.type === "hold" ? "warning" : "neutral",
-    nextAvailableLabel: nextAvailableAt
-      ? `Retour estimé ${formatDateTimeLabel(new Date(nextAvailableAt).toISOString())}`
-      : "Creneau a surveiller",
-    nextAvailableAt:
-      nextAvailableAt && Number.isFinite(nextAvailableAt)
-        ? new Date(nextAvailableAt).toISOString()
-        : null,
-    activeBlockLabel: primaryBlock.label,
-  };
-}
-
-export function getPlanningOperatorSnapshot({
-  reservations,
-  motorcycles,
-  blocks = [],
-  now = new Date(),
-}: {
-  reservations: ReadonlyArray<PlanningReservationRecord>;
-  motorcycles: ReadonlyArray<CatalogMotorcycle>;
-  blocks?: ReadonlyArray<PlanningAvailabilityBlock>;
-  now?: Date;
-}): OperatorDashboardSnapshot {
-  const inventory = getPlanningInventory(reservations, now);
-  const todayKey = toDateKey(now.toISOString());
-
-  const todayReservations = inventory.filter((reservation) => {
-    const pickupDay = toDateKey(reservation.pickupAt);
-    const returnDay = toDateKey(reservation.returnAt);
-
-    return (
-      pickupDay === todayKey ||
-      returnDay === todayKey ||
-      reservation.reservationStatus === "ready_for_pickup" ||
-      reservation.reservationStatus === "active_rental"
-    );
-  });
-
-  const activeHolds = inventory.filter(
-    (reservation) =>
-      reservation.reservationStatus === "hold_payment" &&
-      reservation.paymentStatus === "precheckout_opened",
-  );
-  const confirmedReservations = inventory.filter((reservation) =>
-    ["confirmed", "ready_for_pickup", "pending_validation"].includes(
-      reservation.reservationStatus,
-    ),
-  );
-  const returnsToWatch = inventory.filter((reservation) =>
-    ["active_rental", "return_due", "blocked_ops"].includes(
-      reservation.reservationStatus,
-    ),
-  );
-  const blockedReservations = inventory.filter((reservation) =>
-    ["blocked_ops", "cancelled"].includes(reservation.reservationStatus),
-  );
-
-  return {
-    todayReservations: sortPlanningReservations(todayReservations),
-    activeHolds: sortPlanningReservations(activeHolds),
-    confirmedReservations: sortPlanningReservations(confirmedReservations),
-    returnsToWatch: sortPlanningReservations(returnsToWatch),
-    blockedReservations: sortPlanningReservations(blockedReservations),
-    motorcycleSummaries: motorcycles.map((motorcycle) => {
-      const summary = buildMotorcyclePlanningSummary({
-        motorcycle,
-        reservations,
-        blocks,
-        now,
-      });
-
-      return {
-        motorcycleSlug: motorcycle.slug,
-        motorcycleLabel: `${motorcycle.brand} ${motorcycle.name}`,
-        statusLabel: summary.statusLabel,
-        statusTone: summary.statusTone,
-        nextAvailableLabel: summary.nextAvailableLabel,
-      };
-    }),
-  };
-}
-
 function buildAvailabilityResult({
   available,
   state,
@@ -710,30 +379,6 @@ function buildAvailabilityResult({
       ? "Stock et capacite alignes."
       : blockers[0] ?? "Creneau a corriger.",
   };
-}
-
-function buildCurrentMotorcycleBlocks({
-  motorcycle,
-  reservations,
-  blocks,
-  now,
-}: {
-  motorcycle: CatalogMotorcycle;
-  reservations: ReadonlyArray<PlanningReservationRecord>;
-  blocks: ReadonlyArray<PlanningAvailabilityBlock>;
-  now: Date;
-}) {
-  const startAt = new Date(now.getTime() - 12 * 60 * 60 * 1000).toISOString();
-  const endAt = new Date(now.getTime() + 7 * DAY_IN_MS).toISOString();
-
-  return buildPlanningBlocks({
-    motorcycle,
-    reservations,
-    blocks,
-    windowStartAt: startAt,
-    windowEndAt: endAt,
-    now,
-  });
 }
 
 function buildActivePlanningBlocks({
@@ -937,67 +582,6 @@ function buildEmptyOperationalUsage(): PlanningOperationalUsage {
   };
 }
 
-function sanitizePlanningReservations(
-  input: unknown[],
-): PlanningReservationRecord[] {
-  return input.flatMap((candidate) => {
-    if (!candidate || typeof candidate !== "object") {
-      return [];
-    }
-
-    const value = candidate as Partial<PlanningReservationRecord>;
-    if (
-      typeof value.id !== "string" ||
-      typeof value.reference !== "string" ||
-      typeof value.motorcycleSlug !== "string" ||
-      typeof value.pickupAt !== "string" ||
-      typeof value.returnAt !== "string" ||
-      !isReservationLifecycleStatus(value.reservationStatus) ||
-      !isLedgerPaymentStatus(value.paymentStatus)
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        id: value.id,
-        reference: value.reference,
-        motorcycleSlug: value.motorcycleSlug,
-        pickupAt: value.pickupAt,
-        returnAt: value.returnAt,
-        pickupMode:
-          value.pickupMode === "delivery" ? "delivery" : "motorcycle-location",
-        pickupLocationLabel:
-          typeof value.pickupLocationLabel === "string"
-            ? value.pickupLocationLabel
-            : "Orleans • Centre-ville",
-        reservationStatus: value.reservationStatus,
-        paymentStatus: value.paymentStatus,
-        holdExpiresAt:
-          typeof value.holdExpiresAt === "string" ? value.holdExpiresAt : null,
-        paymentSessionId:
-          typeof value.paymentSessionId === "string"
-            ? value.paymentSessionId
-            : null,
-        customerLabel:
-          typeof value.customerLabel === "string"
-            ? value.customerLabel
-            : "Client local",
-        source: value.source === "seed" ? "seed" : "local",
-        note: typeof value.note === "string" ? value.note : "Reservation locale.",
-        createdAt:
-          typeof value.createdAt === "string"
-            ? value.createdAt
-            : new Date().toISOString(),
-        updatedAt:
-          typeof value.updatedAt === "string"
-            ? value.updatedAt
-            : new Date().toISOString(),
-      },
-    ];
-  });
-}
-
 function keepPlanningReservationHistory(
   reservation: PlanningReservationRecord,
   now: Date,
@@ -1125,38 +709,6 @@ function isReservationBlockingOperations(
   return isReservationBlockingInventory(reservation, now);
 }
 
-function isReservationLifecycleStatus(
-  value: unknown,
-): value is ReservationLifecycleStatus {
-  return [
-    "draft",
-    "hold_payment",
-    "pending_validation",
-    "confirmed",
-    "ready_for_pickup",
-    "active_rental",
-    "return_due",
-    "completed",
-    "cancelled",
-    "blocked_ops",
-  ].includes(String(value));
-}
-
-function isLedgerPaymentStatus(
-  value: unknown,
-): value is ReservationLedgerPaymentStatus {
-  return [
-    "none",
-    "precheckout_opened",
-    "authorized",
-    "paid",
-    "failed",
-    "expired",
-    "refunded",
-    "partial_refund",
-  ].includes(String(value));
-}
-
 function calculateDurationDays(pickupDate: string, returnDate: string) {
   if (!pickupDate || !returnDate) {
     return 0;
@@ -1202,16 +754,6 @@ function rangesOverlap(
   return start < windowEnd && end > windowStart;
 }
 
-function buildReservationReference(motorcycleSlug: string) {
-  const prefix = motorcycleSlug
-    .split("-")
-    .map((chunk) => chunk.slice(0, 2).toUpperCase())
-    .slice(0, 2)
-    .join("");
-
-  return `AM-${prefix}-${Date.now().toString().slice(-6)}`;
-}
-
 function toDateKey(value: string) {
   return value.slice(0, 10);
 }
@@ -1228,13 +770,4 @@ function formatDateTimeLabel(value: string) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(date);
-}
-
-function sortPlanningReservations(
-  reservations: ReadonlyArray<PlanningReservationRecord>,
-) {
-  return [...reservations].sort(
-    (left, right) =>
-      new Date(left.pickupAt).getTime() - new Date(right.pickupAt).getTime(),
-  );
 }

@@ -1,5 +1,3 @@
-"use client";
-
 import Link, { type LinkProps } from "next/link";
 import type { ReactNode } from "react";
 import { getButtonClasses, type ButtonSize, type ButtonVariant } from "./button-shared";

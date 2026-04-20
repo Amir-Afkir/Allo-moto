@@ -5,9 +5,15 @@ import path from "path";
 const DEFAULT_INPUTS = [
   "./public/baniere/baniere.png",
   "./public/baniere/process.png",
+  "./public/baniere/loire.png",
+  "./public/baniere/foret.png",
+  "./public/baniere/chateaux.png",
+  "./public/baniere/sully.png",
+  "./public/logo-allo-moto.png",
 ];
 
-const DEFAULT_WIDTHS = [2560, 1920, 1536, 800];
+const BANNER_WIDTHS = [2560, 1920, 1536, 1024, 768];
+const LOGO_WIDTHS = [512, 256, 128];
 const AVIF_Q = 55;
 const WEBP_Q = 78;
 const BLUR_W = 24;
@@ -47,6 +53,12 @@ async function buildDerivatives(inputPath, widths) {
   console.log(`  + ${blurOut}`);
 }
 
+function getWidthsForInput(inputPath) {
+  return path.basename(inputPath) === "logo-allo-moto.png"
+    ? LOGO_WIDTHS
+    : BANNER_WIDTHS;
+}
+
 async function processOne(inputPath) {
   if (!isImageFile(inputPath)) {
     console.log(`(skip) unsupported file: ${inputPath}`);
@@ -59,7 +71,7 @@ async function processOne(inputPath) {
   }
 
   console.log(`-> ${inputPath}`);
-  await buildDerivatives(inputPath, DEFAULT_WIDTHS);
+  await buildDerivatives(inputPath, getWidthsForInput(inputPath));
 }
 
 async function main() {

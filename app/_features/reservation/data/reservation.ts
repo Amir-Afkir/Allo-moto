@@ -25,14 +25,6 @@ export const PICKUP_MODE_OPTIONS: ReadonlyArray<{ value: ReservationPickupMode; 
   { value: "delivery", label: "Livraison" },
 ];
 
-export const PERMIT_OPTIONS: ReadonlyArray<{ value: PermitSelection; label: string }> = [
-  { value: "none", label: "Sélectionnez" },
-  { value: "B", label: "B" },
-  { value: "A1", label: "A1" },
-  { value: "A2", label: "A2" },
-  { value: "A", label: "A" },
-];
-
 const MILLIS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export function createDefaultReservationWindow(): { pickupDate: string; returnDate: string } {
@@ -61,19 +53,6 @@ export function formatDateInputValue(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-export function formatDateLabel(value: string): string {
-  const date = parseDate(value);
-  if (!date) {
-    return "À préciser";
-  }
-
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).format(date);
 }
 
 export function formatDateRange(start: string, end: string): string {
@@ -154,57 +133,6 @@ export function evaluateReservation({
     blocks: planningBlocks,
     ignoreReservationId,
   });
-}
-
-export function getReservationAlternatives(
-  motorcycles: ReadonlyArray<CatalogMotorcycle>,
-  currentSlug: string,
-  draft: ReservationDraft,
-  planningReservations: ReadonlyArray<PlanningReservationRecord>,
-  planningBlocks: ReadonlyArray<PlanningAvailabilityBlock>,
-  ignoreReservationId?: string | null,
-): ReadonlyArray<CatalogMotorcycle> {
-  return motorcycles
-    .filter((motorcycle) => motorcycle.slug !== currentSlug)
-    .map((motorcycle) => ({
-      motorcycle,
-      evaluation: evaluatePlanningAvailability({
-        motorcycle,
-        draft: {
-          ...draft,
-          motorcycleSlug: motorcycle.slug,
-        },
-        reservations: planningReservations,
-        blocks: planningBlocks,
-        ignoreReservationId,
-      }),
-    }))
-    .sort((left, right) => {
-      const availabilityDelta =
-        Number(right.evaluation.available) - Number(left.evaluation.available);
-      if (availabilityDelta !== 0) {
-        return availabilityDelta;
-      }
-
-      if (left.evaluation.nextAvailableAt && right.evaluation.nextAvailableAt) {
-        return (
-          new Date(left.evaluation.nextAvailableAt).getTime() -
-          new Date(right.evaluation.nextAvailableAt).getTime()
-        );
-      }
-
-      if (left.evaluation.nextAvailableAt) {
-        return 1;
-      }
-
-      if (right.evaluation.nextAvailableAt) {
-        return -1;
-      }
-
-      return left.motorcycle.priceFrom.amount - right.motorcycle.priceFrom.amount;
-    })
-    .slice(0, 3)
-    .map((entry) => entry.motorcycle);
 }
 
 function parseDate(value: string): Date | null {

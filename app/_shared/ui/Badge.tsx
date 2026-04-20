@@ -1,5 +1,3 @@
-"use client";
-
 import type { ReactNode } from "react";
 import { getBadgeClasses, type BadgeSize, type BadgeVariant } from "./badge-shared";
 

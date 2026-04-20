@@ -1,10 +1,6 @@
 import type { Metadata } from "next";
 import { ReservationTunnel } from "@/app/_features/reservation/components/ReservationTunnel";
-import {
-  getPlanningContext,
-  getPublicCatalog,
-  getPublicMotorcycleBySlug,
-} from "@/app/_features/ops/data/ops-store";
+import { getReservationPageData } from "@/app/_features/ops/data/ops-store";
 import {
   createDefaultReservationWindow,
   parsePermitSelection,
@@ -30,14 +26,9 @@ export default async function ReservationPage({
   searchParams,
 }: ReservationPageProps) {
   const resolvedSearchParams = await searchParams;
-  const [motorcycles, planning] = await Promise.all([
-    getPublicCatalog(),
-    getPlanningContext(),
-  ]);
   const requestedMotorcycleSlug = firstValue(resolvedSearchParams?.motorcycle);
-  const requestedMotorcycle = requestedMotorcycleSlug
-    ? await getPublicMotorcycleBySlug(requestedMotorcycleSlug)
-    : null;
+  const { motorcycles, planning, requestedMotorcycle } =
+    await getReservationPageData(requestedMotorcycleSlug);
   const invalidRequestedMotorcycleSlug =
     requestedMotorcycleSlug && !requestedMotorcycle
       ? requestedMotorcycleSlug

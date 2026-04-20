@@ -12,7 +12,6 @@ export type MotoVisualTone = "sand" | "amber" | "graphite" | "ember" | "olive" |
 
 export type CatalogSortKey = "recommended" | "price-asc" | "price-desc" | "availability" | "name";
 export type CatalogPriceBand = "all" | "entry" | "mid" | "premium";
-export type CatalogAvailabilityFilter = "all" | "available" | "reserved" | "maintenance";
 
 export interface CatalogMotorcycle extends Motorcycle {
   monogram: string;
@@ -85,28 +84,6 @@ export const MOTORCYCLE_LICENSE_OPTIONS: ReadonlyArray<{ value: MotorcycleLicens
   { value: "A1", label: "Permis A1" },
   { value: "A2", label: "Permis A2" },
   { value: "A", label: "Permis A" },
-];
-
-export const MOTORCYCLE_PRICE_BAND_OPTIONS: ReadonlyArray<{ value: CatalogPriceBand; label: string }> = [
-  { value: "all", label: "Tous les prix" },
-  { value: "entry", label: "Entrée de gamme" },
-  { value: "mid", label: "Milieu de gamme" },
-  { value: "premium", label: "Premium" },
-];
-
-export const MOTORCYCLE_AVAILABILITY_OPTIONS: ReadonlyArray<{ value: CatalogAvailabilityFilter; label: string }> = [
-  { value: "all", label: "Toutes" },
-  { value: "available", label: "Disponibles" },
-  { value: "reserved", label: "Réservées" },
-  { value: "maintenance", label: "Maintenance" },
-];
-
-export const MOTORCYCLE_SORT_OPTIONS: ReadonlyArray<{ value: CatalogSortKey; label: string }> = [
-  { value: "recommended", label: "Recommandées" },
-  { value: "price-asc", label: "Prix croissant" },
-  { value: "price-desc", label: "Prix décroissant" },
-  { value: "availability", label: "Disponibilité" },
-  { value: "name", label: "Nom" },
 ];
 
 export const MOTORCYCLE_CATALOG: ReadonlyArray<CatalogMotorcycle> = [
@@ -351,16 +328,3 @@ export const MOTORCYCLE_CATALOG: ReadonlyArray<CatalogMotorcycle> = [
     visualTone: "amber",
   },
 ];
-
-export const MOTORCYCLE_CATALOG_BY_SLUG: ReadonlyMap<string, CatalogMotorcycle> = new Map(
-  MOTORCYCLE_CATALOG.map((motorcycle) => [motorcycle.slug, motorcycle] as const)
-);
-
-export function getMotorcycleBySlug(slug: string): CatalogMotorcycle | null {
-  return MOTORCYCLE_CATALOG_BY_SLUG.get(slug) ?? null;
-}
-
-export function getFeaturedMotorcycles(limit = 3): ReadonlyArray<CatalogMotorcycle> {
-  const featured = MOTORCYCLE_CATALOG.filter((motorcycle) => motorcycle.featured);
-  return (featured.length > 0 ? featured : MOTORCYCLE_CATALOG).slice(0, limit);
-}

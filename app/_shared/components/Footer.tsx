@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { getSupportConfig } from "@/app/_features/support/data/support";
 import BrandMark from "@/app/_shared/components/BrandMark";
 import FooterDiscoverLinks from "./FooterDiscoverLinks";
@@ -18,17 +19,21 @@ export default async function Footer() {
       <div className="app-shell py-8 sm:py-10 lg:py-12">
         <div className="space-y-6">
           <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-            <div className="inline-flex items-center gap-3 sm:gap-4">
+            <Link
+              href="/"
+              aria-label="Retour à l’accueil Allo Moto"
+              className="inline-flex min-w-0 items-center gap-3 rounded-control outline-none transition-colors hover:text-brand-700 focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:gap-4"
+            >
               <BrandMark size="md" />
               <span className="min-w-0">
                 <span className="block text-[0.78rem] font-semibold uppercase tracking-[0.18em] text-foreground">
                   Allo Moto
                 </span>
                 <span className="mt-1 block max-w-md text-sm leading-6 text-muted-foreground">
-                  Location de moto premium, parcours court.
+                  Location moto à Orléans, réservation guidée.
                 </span>
               </span>
-            </div>
+            </Link>
 
             <Suspense
               fallback={<div className="h-11 w-full lg:w-[16rem]" />}

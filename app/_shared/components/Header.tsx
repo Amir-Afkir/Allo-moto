@@ -12,7 +12,7 @@ export default function Header() {
         />
         <Suspense
           fallback={
-            <div className="app-shell h-[5.5rem] lg:h-[4.5rem]" />
+            <div className="app-shell h-[6.25rem] lg:h-[4.5rem]" />
           }
         >
           <HeaderChrome />

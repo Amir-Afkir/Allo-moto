@@ -2,6 +2,7 @@ import "server-only";
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { unstable_cache } from "next/cache";
 import {
   MOTORCYCLE_CATALOG,
   MOTORCYCLE_CATEGORY_LABELS,
@@ -61,6 +62,8 @@ const DEFAULT_RETURN_HOUR = 18;
 const DELIVERY_PICKUP_HOUR = 9;
 const DELIVERY_RETURN_HOUR = 19;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const PUBLIC_HOME_REVALIDATE_SECONDS = 300;
+const PUBLIC_CATALOG_REVALIDATE_SECONDS = 60;
 
 export type OpsVehicleSaveValues = {
   name: string;
@@ -110,30 +113,215 @@ export type OpsActionSummary = {
 
 export type OpsReservationFocus = "pickup-today" | "return-today";
 
-export async function getPublicCatalog(now: Date = new Date()) {
+const getCachedPublicCatalog = unstable_cache(
+  async () => getPublicCatalogUncached(new Date()),
+  ["public-catalog"],
+  {
+    revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
+    tags: ["public-catalog"],
+  },
+);
+
+const getCachedPublicMotorcycleBySlug = unstable_cache(
+  async (slug: string) => getPublicMotorcycleBySlugUncached(slug, new Date()),
+  ["public-motorcycle-by-slug"],
+  {
+    revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
+    tags: ["public-catalog"],
+  },
+);
+
+const getCachedFeaturedPublicMotorcycles = unstable_cache(
+  async (limit: number) => getFeaturedPublicMotorcyclesUncached(limit, new Date()),
+  ["featured-public-motorcycles"],
+  {
+    revalidate: PUBLIC_HOME_REVALIDATE_SECONDS,
+    tags: ["public-catalog"],
+  },
+);
+
+const getCachedPlanningContext = unstable_cache(
+  async () => getPlanningContextUncached(new Date()),
+  ["public-planning-context"],
+  {
+    revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
+    tags: ["public-planning"],
+  },
+);
+
+const getCachedPublicHomeData = unstable_cache(
+  async () => getPublicHomeDataUncached(new Date()),
+  ["public-home-data"],
+  {
+    revalidate: PUBLIC_HOME_REVALIDATE_SECONDS,
+    tags: ["public-catalog", "public-home"],
+  },
+);
+
+const getCachedPublicCatalogPageData = unstable_cache(
+  async () => getPublicCatalogPageDataUncached(new Date()),
+  ["public-catalog-page-data"],
+  {
+    revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
+    tags: ["public-catalog", "public-planning"],
+  },
+);
+
+const getCachedPublicMotorcycleDetailPageData = unstable_cache(
+  async (slug: string) =>
+    getPublicMotorcycleDetailPageDataUncached(slug, new Date()),
+  ["public-motorcycle-detail-page-data"],
+  {
+    revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
+    tags: ["public-catalog", "public-planning"],
+  },
+);
+
+export async function getPublicCatalog(now?: Date) {
+  if (!now) {
+    return getCachedPublicCatalog();
+  }
+
+  return getPublicCatalogUncached(now);
+}
+
+export async function getPublicMotorcycleBySlug(slug: string, now?: Date) {
+  if (!now) {
+    return getCachedPublicMotorcycleBySlug(slug);
+  }
+
+  return getPublicMotorcycleBySlugUncached(slug, now);
+}
+
+export async function getFeaturedPublicMotorcycles(limit = 3, now?: Date) {
+  if (!now) {
+    return getCachedFeaturedPublicMotorcycles(limit);
+  }
+
+  return getFeaturedPublicMotorcyclesUncached(limit, now);
+}
+
+export async function getPlanningContext(now?: Date) {
+  if (!now) {
+    return getCachedPlanningContext();
+  }
+
+  return getPlanningContextUncached(now);
+}
+
+export async function getPublicHomeData(now?: Date) {
+  if (!now) {
+    return getCachedPublicHomeData();
+  }
+
+  return getPublicHomeDataUncached(now);
+}
+
+export async function getPublicCatalogPageData(now?: Date) {
+  if (!now) {
+    return getCachedPublicCatalogPageData();
+  }
+
+  return getPublicCatalogPageDataUncached(now);
+}
+
+export async function getPublicMotorcycleDetailPageData(
+  slug: string,
+  now?: Date,
+) {
+  if (!now) {
+    return getCachedPublicMotorcycleDetailPageData(slug);
+  }
+
+  return getPublicMotorcycleDetailPageDataUncached(slug, now);
+}
+
+export async function getReservationPageData(
+  requestedMotorcycleSlug?: string | null,
+  now: Date = new Date(),
+) {
   const store = await readStore();
+  const motorcycles = buildPublicCatalogFromStore(store, now);
+  const requestedMotorcycle = requestedMotorcycleSlug
+    ? motorcycles.find((motorcycle) => motorcycle.slug === requestedMotorcycleSlug) ?? null
+    : null;
+
+  return {
+    motorcycles,
+    planning: buildPlanningContextFromStore(store, now),
+    requestedMotorcycle,
+  };
+}
+
+async function getPublicCatalogUncached(now: Date) {
+  const store = await readStore();
+  return buildPublicCatalogFromStore(store, now);
+}
+
+async function getPublicMotorcycleBySlugUncached(slug: string, now: Date) {
+  const store = await readStore();
+  return findPublicMotorcycleFromStore(store, slug, now);
+}
+
+async function getFeaturedPublicMotorcyclesUncached(limit: number, now: Date) {
+  const store = await readStore();
+  return getFeaturedFromCatalog(buildPublicCatalogFromStore(store, now), limit);
+}
+
+async function getPlanningContextUncached(now: Date) {
+  const store = await readStore();
+  return buildPlanningContextFromStore(store, now);
+}
+
+async function getPublicHomeDataUncached(now: Date) {
+  const store = await readStore();
+  const catalog = buildPublicCatalogFromStore(store, now);
+
+  return {
+    motorcycles: getFeaturedFromCatalog(catalog, 3),
+  };
+}
+
+async function getPublicCatalogPageDataUncached(now: Date) {
+  const store = await readStore();
+
+  return {
+    motorcycles: buildPublicCatalogFromStore(store, now),
+    planning: buildPlanningContextFromStore(store, now),
+  };
+}
+
+async function getPublicMotorcycleDetailPageDataUncached(slug: string, now: Date) {
+  const store = await readStore();
+  const catalog = buildPublicCatalogFromStore(store, now);
+
+  return {
+    motorcycle: findPublicMotorcycleFromStore(store, slug, now),
+    catalog,
+    planning: buildPlanningContextFromStore(store, now),
+  };
+}
+
+function buildPublicCatalogFromStore(store: OpsStoreSnapshot, now: Date) {
   return store.vehicles
     .filter((vehicle) => vehicle.opsStatus !== "hidden")
     .map((vehicle) => buildCatalogMotorcycle(vehicle, store, now));
 }
 
-export async function getPublicMotorcycleBySlug(slug: string, now: Date = new Date()) {
-  const store = await readStore();
+function findPublicMotorcycleFromStore(
+  store: OpsStoreSnapshot,
+  slug: string,
+  now: Date,
+) {
   const vehicle =
     store.vehicles.find(
       (candidate) => candidate.slug === slug && candidate.opsStatus !== "hidden",
     ) ?? null;
+
   return vehicle ? buildCatalogMotorcycle(vehicle, store, now) : null;
 }
 
-export async function getFeaturedPublicMotorcycles(limit = 3, now: Date = new Date()) {
-  const catalog = await getPublicCatalog(now);
-  const featured = catalog.filter((motorcycle) => motorcycle.featured);
-  return (featured.length > 0 ? featured : catalog).slice(0, limit);
-}
-
-export async function getPlanningContext(now: Date = new Date()) {
-  const store = await readStore();
+function buildPlanningContextFromStore(store: OpsStoreSnapshot, now: Date) {
   const reservations = store.reservations.map(toPlanningReservationRecord);
   const blocks = store.vehicleBlocks
     .filter((block) => block.type !== "reservation")
@@ -147,6 +335,14 @@ export async function getPlanningContext(now: Date = new Date()) {
     blocks,
     motorcycles,
   };
+}
+
+function getFeaturedFromCatalog(
+  catalog: ReadonlyArray<CatalogMotorcycle>,
+  limit: number,
+) {
+  const featured = catalog.filter((motorcycle) => motorcycle.featured);
+  return (featured.length > 0 ? featured : catalog).slice(0, limit);
 }
 
 export async function listAdminVehicles(now: Date = new Date()): Promise<AdminVehicleRow[]> {

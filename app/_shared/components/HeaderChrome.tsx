@@ -6,7 +6,7 @@ import BrandMark from "@/app/_shared/components/BrandMark";
 import { ButtonLink } from "@/app/_shared/ui/ButtonLink";
 import {
   getDesktopHeaderNavItems,
-  getHeaderNavItems,
+  getMobileHeaderNavItems,
   getPrimaryCta,
   getSurfaceLabel,
 } from "@/app/_shared/lib/navigation";
@@ -15,31 +15,32 @@ export default function HeaderChrome() {
   const pathname = usePathname() ?? "/";
   const searchParams = useSearchParams();
   const reservationStage = searchParams?.get("stage");
-  const mobileNavItems = getHeaderNavItems();
+  const mobileNavItems = getMobileHeaderNavItems();
   const desktopNavItems = getDesktopHeaderNavItems();
   const primaryCta = getPrimaryCta();
   const surfaceLabel = getSurfaceLabel(pathname, reservationStage);
 
   return (
-    <div className="app-shell py-4 lg:py-2.5">
-      <div className="flex h-12 items-center justify-between gap-4 lg:hidden">
+    <div className="app-shell py-2 lg:py-2.5">
+      <div className="flex h-10 items-center justify-between gap-3 lg:hidden">
         <Link
           href="/"
-          className="flex items-center gap-4"
+          className="flex min-w-0 items-center gap-2"
           aria-label="Aller à l’accueil"
         >
-          <BrandMark size="md" priority />
-          <span className="hidden text-sm font-semibold tracking-[0.16em] text-foreground/80 uppercase sm:inline">
+          <BrandMark size="md" priority className="h-8 w-8 shrink-0" />
+          <span className="hidden truncate text-xs font-semibold tracking-[0.12em] text-foreground/72 uppercase sm:inline">
             Allo Moto
           </span>
         </Link>
 
-        <div className="flex items-center gap-2 lg:hidden">
+        <div className="flex shrink-0 items-center gap-2 lg:hidden">
           <ButtonLink
             href={primaryCta.href}
             ariaLabel={primaryCta.ariaLabel}
             variant={primaryCta.variant}
             size="md"
+            className="min-h-10 px-4 py-2 text-sm"
           >
             {primaryCta.label}
           </ButtonLink>
@@ -47,14 +48,14 @@ export default function HeaderChrome() {
       </div>
 
       <nav
-        className="flex gap-2 overflow-x-auto pb-1 lg:hidden"
+        className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 pt-0.5 lg:hidden"
         aria-label="Navigation mobile"
       >
         {mobileNavItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
-            className="whitespace-nowrap rounded-control border border-border/60 bg-surface/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-foreground/72"
+            className="inline-flex min-h-10 items-center whitespace-nowrap rounded-control border border-transparent bg-transparent px-2.5 py-2 text-[0.72rem] font-semibold tracking-[0.08em] text-foreground/72 uppercase transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/35"
           >
             {item.label}
           </Link>

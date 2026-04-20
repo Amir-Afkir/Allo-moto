@@ -1,5 +1,3 @@
-"use client";
-
 import Image from "next/image";
 import { cn } from "@/app/_shared/lib/cn";
 
@@ -27,11 +25,12 @@ export default function BrandMark({
       className={cn("relative block shrink-0", SIZE_CLASSES[size], className)}
     >
       <Image
-        src="/logo-allo-moto.png"
+        src="/logo-allo-moto-512.webp"
         alt=""
-        width={825}
-        height={825}
+        width={512}
+        height={512}
         priority={priority}
+        sizes="(max-width: 1024px) 48px, 56px"
         className={cn("h-full w-full object-contain", imageClassName)}
       />
     </span>

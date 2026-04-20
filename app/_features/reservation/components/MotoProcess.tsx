@@ -22,13 +22,14 @@ export default function MotoProcess() {
   return (
     <section
       id="journey"
-      className="relative isolate w-full overflow-hidden bg-[#f7f2e9]"
+      className="section-deferred section-deferred-tall relative isolate w-full overflow-hidden bg-[#f7f2e9]"
     >
       <div className="relative min-h-[36rem] sm:min-h-[40rem] lg:min-h-[44rem]">
         <Image
-          src="/baniere/process.png"
+          src="/baniere/process-2560.webp"
           alt="Remise de clé de moto"
           fill
+          quality={78}
           sizes="100vw"
           className="object-cover object-[52%_52%]"
         />

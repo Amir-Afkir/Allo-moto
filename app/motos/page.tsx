@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { MotoCatalogClient } from "@/app/_features/catalog/components/MotoCatalogClient";
 import { MotoCatalogHero } from "@/app/_features/catalog/components/MotoCatalogHero";
-import { getPlanningContext, getPublicCatalog } from "@/app/_features/ops/data/ops-store";
+import { getPublicCatalogPageData } from "@/app/_features/ops/data/ops-store";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Catalogue motos | Allo Moto",
@@ -11,10 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function MotosPage() {
-  const [motorcycles, planning] = await Promise.all([
-    getPublicCatalog(),
-    getPlanningContext(),
-  ]);
+  const { motorcycles, planning } = await getPublicCatalogPageData();
 
   return (
     <main className="app-shell">

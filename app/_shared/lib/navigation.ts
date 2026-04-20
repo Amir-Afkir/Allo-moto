@@ -13,18 +13,22 @@ export type PrimaryCta = {
 
 export const CATALOG_HREF = "/motos";
 export const CATALOG_AVAILABILITY_HREF = "/motos#availability";
+export const HOME_FEATURED_MOTOS_HREF = "/#featured-motos";
+export const HOME_DESTINATIONS_HREF = "/#destinations-moto";
+export const HOME_EQUIPMENT_HREF = "/#equipment-license";
 export const HOME_JOURNEY_HREF = "/#journey";
 export const HOME_HELP_HREF = "/#help";
-
-export const DEFAULT_RESERVATION_HREF = "/reserver?stage=selection";
-export const DEFAULT_RESERVATION_FORM_HREF =
-  "/reserver?stage=selection#reservation-form";
 
 const HEADER_ITEMS: ReadonlyArray<NavigationItem> = [
   {
     label: "Modèles",
-    href: "/#featured-motos",
+    href: HOME_FEATURED_MOTOS_HREF,
     description: "Revenir aux modèles mis en avant sur l’accueil",
+  },
+  {
+    label: "Balades",
+    href: HOME_DESTINATIONS_HREF,
+    description: "Découvrir des idées de balades moto autour d’Orléans",
   },
   {
     label: "Comment réserver",
@@ -38,9 +42,34 @@ const HEADER_ITEMS: ReadonlyArray<NavigationItem> = [
   },
 ];
 
+const MOBILE_HEADER_ITEMS: ReadonlyArray<NavigationItem> = [
+  {
+    label: "Modèles",
+    href: HOME_FEATURED_MOTOS_HREF,
+    description: "Revenir aux modèles mis en avant sur l’accueil",
+  },
+  {
+    label: "Balades",
+    href: HOME_DESTINATIONS_HREF,
+    description: "Découvrir des idées de balades moto autour d’Orléans",
+  },
+  {
+    label: "Permis",
+    href: HOME_EQUIPMENT_HREF,
+    description: "Vérifier l’équipement et le permis à prévoir",
+  },
+  {
+    label: "Aide",
+    href: HOME_HELP_HREF,
+    description: "Poser une question avant de réserver",
+  },
+];
+
 const FOOTER_NAV_ITEMS: ReadonlyArray<NavigationItem> = [
-  { label: "Modèles", href: "/#featured-motos" },
-  { label: "Comment réserver", href: HOME_JOURNEY_HREF },
+  { label: "Modèles", href: HOME_FEATURED_MOTOS_HREF },
+  { label: "Balades", href: HOME_DESTINATIONS_HREF },
+  { label: "Permis", href: HOME_EQUIPMENT_HREF },
+  { label: "Réserver", href: HOME_JOURNEY_HREF },
   { label: "Aide", href: HOME_HELP_HREF },
 ];
 
@@ -50,8 +79,8 @@ const FOOTER_LEGAL_ITEMS: ReadonlyArray<NavigationItem> = [
   { label: "Mentions légales", href: "/mentions-legales" },
 ];
 
-export function getHeaderNavItems(): ReadonlyArray<NavigationItem> {
-  return HEADER_ITEMS;
+export function getMobileHeaderNavItems(): ReadonlyArray<NavigationItem> {
+  return MOBILE_HEADER_ITEMS;
 }
 
 export function getDesktopHeaderNavItems(): ReadonlyArray<NavigationItem> {
@@ -99,22 +128,6 @@ export function getReservationStageLabel(stage?: string | null): string {
   }
 
   return "Choix";
-}
-
-export function getReservationStageProgress(stage?: string | null): string {
-  if (stage === "payment") {
-    return "3/4";
-  }
-
-  if (stage === "confirmed") {
-    return "4/4";
-  }
-
-  if (stage === "client") {
-    return "2/4";
-  }
-
-  return "1/4";
 }
 
 export function getPrimaryCta(): PrimaryCta {
