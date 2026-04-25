@@ -65,7 +65,7 @@ export function MotoRetenueSidebar({
       }
       details={details}
       footerNote={
-        footerNote ?? (!selectedVisible ? "Retenue, meme si les filtres la masquent." : null)
+        footerNote ?? (!selectedVisible ? "Retenue, même si les filtres la masquent." : null)
       }
     />
   );

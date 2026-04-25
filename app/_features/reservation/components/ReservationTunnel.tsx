@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { MotoRetenueSidebar } from "@/app/_features/catalog/components/MotoRetenueSidebar";
 import {
   MOTORCYCLE_STATUS_META,
@@ -45,13 +45,11 @@ import {
   type ReservationClientValidation,
 } from "@/app/_features/reservation/data/reservation-intake";
 import { cn } from "@/app/_shared/lib/cn";
-import { formatMoney } from "@/app/_shared/lib/format";
 import { Badge } from "@/app/_shared/ui/Badge";
 import { Button } from "@/app/_shared/ui/Button";
 import { EmptyState } from "@/app/_shared/ui/EmptyState";
 import { Input } from "@/app/_shared/ui/Input";
 import { Label } from "@/app/_shared/ui/Label";
-import { ReservationMiniStat as MiniStat } from "./ReservationMeta";
 import { ReservationClientDossier } from "./ReservationClientDossier";
 
 const ReservationPayment = dynamic(
@@ -122,6 +120,8 @@ export function ReservationTunnel({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPlanningModalOpen, setIsPlanningModalOpen] = useState(false);
   const [planningFeedback, setPlanningFeedback] = useState<string | null>(null);
+  const [liveNotice, setLiveNotice] = useState("");
+  const [liveAlert, setLiveAlert] = useState("");
   const [planningDraft, setPlanningDraft] = useState<{
     pickupDate: string;
     returnDate: string;
@@ -139,6 +139,7 @@ export function ReservationTunnel({
     reservations: initialPlanningReservations,
     blocks: initialPlanningBlocks,
   });
+  const planningReturnFocusRef = useRef<HTMLElement | null>(null);
 
   const selectedMotorcycle = useMemo(
     () =>
@@ -269,7 +270,7 @@ export function ReservationTunnel({
         ? `${formatDateRange(pickupDate, returnDate)} • ${evaluation.pickupLabel}`
         : evaluation.blockers[0] ??
           evaluation.nextAvailableLabel ??
-          "Creneau a verifier.";
+          "Créneau à vérifier.";
   const reservationSidebarAction = getReservationSidebarAction({
     viewStage,
     hasChecked,
@@ -292,9 +293,37 @@ export function ReservationTunnel({
     paymentReady: confirmationSnapshot.state === "pending_validation",
     confirmationReady: confirmationSnapshot.state === "confirmed",
     selectionHref: selectionStageHref,
-    clientHref: clientStageHref,
     catalogHref: "/motos",
   });
+  const mobileHeaderCopy = getMobileReservationHeaderCopy({
+    viewStage,
+    confirmationReady: confirmationSnapshot.state === "confirmed",
+  });
+  const selectionAnnouncement = useMemo(() => {
+    if (viewStage !== "selection" || !hasChecked || !selectedMotorcycle) {
+      return null;
+    }
+
+    if (evaluation.available) {
+      return "Créneau compatible. Vous pouvez passer au dossier.";
+    }
+
+    return (
+      evaluation.blockers[0] ??
+      evaluation.nextAvailableLabel ??
+      "Ce créneau doit être ajusté."
+    );
+  }, [
+    evaluation.available,
+    evaluation.blockers,
+    evaluation.nextAvailableLabel,
+    hasChecked,
+    selectedMotorcycle,
+    viewStage,
+  ]);
+  const shouldShowMobileDock =
+    Boolean(selectedMotorcycle) &&
+    (viewStage === "selection" || viewStage === "client");
 
   useEffect(() => {
     const storedDraft = loadReservationClientDraft();
@@ -353,6 +382,49 @@ export function ReservationTunnel({
     }
   }, [currentReservationId, planningReservations]);
 
+  useEffect(() => {
+    setLiveNotice(
+      getReservationStageAnnouncement({
+        viewStage,
+        confirmationReady: confirmationSnapshot.state === "confirmed",
+      }),
+    );
+  }, [confirmationSnapshot.state, viewStage]);
+
+  useEffect(() => {
+    if (!planningFeedback) {
+      return;
+    }
+
+    setLiveNotice(planningFeedback);
+  }, [planningFeedback]);
+
+  useEffect(() => {
+    if (!selectionAnnouncement) {
+      return;
+    }
+
+    setLiveNotice(selectionAnnouncement);
+  }, [selectionAnnouncement]);
+
+  useEffect(() => {
+    if (!submitError) {
+      return;
+    }
+
+    setLiveAlert(submitError);
+  }, [submitError]);
+
+  useEffect(() => {
+    if (!invalidRequestedMotorcycleSlug) {
+      return;
+    }
+
+    setLiveAlert(
+      `Le modèle ${invalidRequestedMotorcycleSlug} n'est plus disponible.`,
+    );
+  }, [invalidRequestedMotorcycleSlug]);
+
   function clearCurrentReservationContext() {
     if (currentReservationId) {
       setCurrentReservationId(null);
@@ -361,6 +433,21 @@ export function ReservationTunnel({
       setConfirmationRecord(null);
       clearReservationConfirmationRecord();
     }
+  }
+
+  function restorePlanningTriggerFocus() {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const trigger = planningReturnFocusRef.current;
+    if (!trigger) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      trigger.focus();
+    });
   }
 
   function resetValidation() {
@@ -450,7 +537,7 @@ export function ReservationTunnel({
       if (!response.ok || !payload?.ok || !payload.reservation) {
         setSubmitError(
           payload?.message ??
-            "La demande n'a pas pu etre envoyee. Reessayez dans un instant.",
+            "La demande n'a pas pu être envoyée. Réessayez dans un instant.",
         );
         return;
       }
@@ -477,7 +564,7 @@ export function ReservationTunnel({
       setViewStage("confirmed");
     } catch {
       setSubmitError(
-        "La demande n'a pas pu etre envoyee. Reessayez dans un instant.",
+        "La demande n'a pas pu être envoyée. Réessayez dans un instant.",
       );
     } finally {
       setIsSubmittingReservation(false);
@@ -498,9 +585,18 @@ export function ReservationTunnel({
   function handleSubmit() {
     setPlanningFeedback(null);
     setHasChecked(true);
+
+    if (evaluation.available && selectedMotorcycle) {
+      setViewStage("client");
+    }
   }
 
   function openPlanningModal() {
+    planningReturnFocusRef.current =
+      typeof document !== "undefined" &&
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     setPlanningDraft({
       pickupDate,
       returnDate,
@@ -510,6 +606,11 @@ export function ReservationTunnel({
     setIsPlanningModalOpen(true);
   }
 
+  function closePlanningModal() {
+    setIsPlanningModalOpen(false);
+    restorePlanningTriggerFocus();
+  }
+
   function applyPlanningModal() {
     const hasChanged =
       planningDraft.pickupDate !== pickupDate ||
@@ -517,7 +618,7 @@ export function ReservationTunnel({
       planningDraft.pickupMode !== pickupMode;
 
     if (!hasChanged) {
-      setIsPlanningModalOpen(false);
+      closePlanningModal();
       return;
     }
 
@@ -529,10 +630,10 @@ export function ReservationTunnel({
     resetValidation();
     setPlanningFeedback(
       hadHold
-        ? "Creneau mis a jour. La demande precedente a ete liberee."
-        : "Creneau mis a jour. Verifiez la disponibilite.",
+        ? "Créneau mis à jour. La demande précédente a été libérée."
+        : "Créneau mis à jour. Vérifiez la disponibilité.",
     );
-    setIsPlanningModalOpen(false);
+    closePlanningModal();
   }
 
   function handlePrimaryAction() {
@@ -553,13 +654,26 @@ export function ReservationTunnel({
   }
 
   return (
-    <section className="w-full pb-16">
-      <div className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+    <section
+      className={cn(
+        "w-full pb-16 md:pb-16",
+        shouldShowMobileDock &&
+          "pb-[calc(8.75rem+env(safe-area-inset-bottom))] md:pb-16",
+      )}
+    >
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {liveNotice}
+      </div>
+      <div className="sr-only" aria-live="assertive" aria-atomic="true">
+        {liveAlert}
+      </div>
+
+      <div className="mb-4 hidden flex-wrap items-center gap-2 text-sm text-muted-foreground md:flex">
         <Link href="/motos" className="transition-colors hover:text-foreground">
           Motos
         </Link>
         <span>/</span>
-        <span className="text-foreground">Reserver</span>
+        <span className="text-foreground">Réserver</span>
       </div>
 
       {invalidRequestedMotorcycleSlug ? (
@@ -602,27 +716,57 @@ export function ReservationTunnel({
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-8">
-          <section className="space-y-6 border-b border-border/60 pb-8">
-            <div className="max-w-3xl space-y-3">
+          <section className="space-y-4 border-b border-border/60 pb-6 md:space-y-6 md:pb-8">
+            <div className="md:hidden">
+              <Link
+                href="/motos"
+                className="label inline-flex items-center gap-2 text-foreground/72 transition-colors hover:text-foreground"
+              >
+                Retour aux motos
+              </Link>
+            </div>
+
+            <div className="max-w-3xl space-y-2 md:space-y-3">
               <h1 className="heading-1 text-foreground text-balance">
-                {reservationSurface.title}
+                <span className="md:hidden">{mobileHeaderCopy.title}</span>
+                <span className="hidden md:inline">{reservationSurface.title}</span>
               </h1>
               <p className="max-w-2xl body-copy text-muted-foreground">
-                {reservationSurface.description}
+                <span className="md:hidden">{mobileHeaderCopy.description}</span>
+                <span className="hidden md:inline">
+                  {reservationSurface.description}
+                </span>
               </p>
             </div>
 
-            <ReservationScheduleStrip
+            <ReservationMobileSummary
               motorcycle={selectedMotorcycle}
               pickupDate={pickupDate}
               returnDate={returnDate}
               pickupMode={pickupMode}
               hasActiveHold={hasActiveHold}
+              actions={reservationSurface}
               onEdit={openPlanningModal}
             />
 
+            <div className="hidden md:block">
+              <ReservationScheduleStrip
+                motorcycle={selectedMotorcycle}
+                pickupDate={pickupDate}
+                returnDate={returnDate}
+                pickupMode={pickupMode}
+                hasActiveHold={hasActiveHold}
+                onEdit={openPlanningModal}
+              />
+            </div>
+
             {planningFeedback ? (
-              <p className="text-sm text-muted-foreground">{planningFeedback}</p>
+              <p
+                className="rounded-card border border-border/60 bg-surface/70 px-4 py-3 text-sm text-muted-foreground"
+                role="status"
+              >
+                {planningFeedback}
+              </p>
             ) : null}
 
             <ReservationStepper
@@ -635,19 +779,34 @@ export function ReservationTunnel({
           {viewStage === "selection" ? (
             <div
               id="reservation-form"
-              className="space-y-6 border-b border-border/60 pb-8"
+              className="space-y-5 border-b border-border/60 pb-8 md:space-y-6"
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="space-y-2">
+                  <p className="label md:hidden">Sélection</p>
                   <h2 className="heading-3 text-foreground">
-                    {selectedMotorcycle
-                      ? `${selectedMotorcycle.brand} ${selectedMotorcycle.model}`
-                      : "Choisissez un modèle"}
+                    <span className="md:hidden">
+                      {selectedMotorcycle
+                        ? "Vérifiez votre sélection."
+                        : "Choisissez une moto."}
+                    </span>
+                    <span className="hidden md:inline">
+                      {selectedMotorcycle
+                        ? `${selectedMotorcycle.brand} ${selectedMotorcycle.model}`
+                        : "Choisissez un modèle"}
+                    </span>
                   </h2>
                   <p className="body-copy text-muted-foreground">
-                    {selectedMotorcycle
-                      ? `${selectedMotorcycle.locationLabel} • Ajustez si besoin, puis lancez la verification.`
-                      : "Choisissez une moto, vos dates et votre retrait pour lancer la verification."}
+                    <span className="md:hidden">
+                      {selectedMotorcycle
+                        ? "Ajustez les dates ou le retrait, puis lancez la vérification."
+                        : "Choisissez une moto, vos dates et le retrait pour lancer la vérification."}
+                    </span>
+                    <span className="hidden md:inline">
+                      {selectedMotorcycle
+                        ? `${selectedMotorcycle.locationLabel} • Ajustez si besoin, puis lancez la vérification.`
+                        : "Choisissez une moto, vos dates et votre retrait pour lancer la vérification."}
+                    </span>
                   </p>
                 </div>
 
@@ -668,7 +827,7 @@ export function ReservationTunnel({
                 <div className="border-y border-dashed border-border/70 py-5">
                   <EmptyState
                     title="Aucune moto sélectionnée."
-                    description="Choisissez un modèle pour lancer la vérification. Vous pouvez repartir du catalogue à tout moment."
+                    description="Choisissez un modèle pour lancer la vérification."
                     action={
                       <Button
                         as="link"
@@ -774,7 +933,7 @@ export function ReservationTunnel({
                   size="lg"
                   onClick={handleSubmit}
                 >
-                  Verifier la disponibilite
+                  Vérifier la disponibilité
                 </Button>
                 <Button
                   as="link"
@@ -881,35 +1040,35 @@ export function ReservationTunnel({
           )}
         </aside>
       </div>
-      <ReservationMobileDock
-        motorcycle={selectedMotorcycle}
-        evaluation={evaluation}
-        actions={reservationSurface}
-        pickupDate={pickupDate}
-        returnDate={returnDate}
-        pickupMode={pickupMode}
-        clientValidation={clientValidation}
-        clientDraftStatusLabel={
-          clientDraftRestored && !clientDraftTouched
-            ? "Brouillon restauré"
-            : clientDraftTouched
-              ? "Autosauvegardé"
-              : clientDraftLoaded
-                ? "Autosauvegarde prête"
-                : "Chargement..."
-        }
-        onPrimaryAction={handlePrimaryAction}
-      />
+      {shouldShowMobileDock ? (
+        <ReservationMobileDock
+          motorcycle={selectedMotorcycle}
+          actions={reservationSurface}
+          pickupDate={pickupDate}
+          returnDate={returnDate}
+          pickupMode={pickupMode}
+          clientValidation={clientValidation}
+          clientDraftStatusLabel={
+            clientDraftRestored && !clientDraftTouched
+              ? "Brouillon restauré"
+              : clientDraftTouched
+                ? "Autosauvegardé"
+                : clientDraftLoaded
+                  ? "Autosauvegarde prête"
+                  : "Chargement..."
+          }
+          onPrimaryAction={handlePrimaryAction}
+        />
+      ) : null}
       {isPlanningModalOpen ? (
         <ReservationPlanningModal
           draft={planningDraft}
           onDraftChange={setPlanningDraft}
-          onClose={() => setIsPlanningModalOpen(false)}
+          onClose={closePlanningModal}
           onApply={applyPlanningModal}
           hasActiveHold={hasActiveHold}
         />
       ) : null}
-      <div className="h-32 md:hidden" aria-hidden />
     </section>
   );
 }
@@ -1061,7 +1220,7 @@ function ReservationScheduleStrip({
     <div className="flex flex-col gap-3 border-y border-border/60 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="meta-label">Creneau</p>
+          <p className="meta-label">Créneau</p>
           {hasActiveHold ? (
             <Badge variant="warning" size="sm">
               Demande en cours
@@ -1073,7 +1232,7 @@ function ReservationScheduleStrip({
         </p>
         {hasActiveHold ? (
           <p className="text-xs text-muted-foreground">
-            Modifier le creneau relancera la verification en cours.
+            Modifier le créneau relancera la vérification en cours.
           </p>
         ) : null}
       </div>
@@ -1081,9 +1240,10 @@ function ReservationScheduleStrip({
       <Button
         as="button"
         type="button"
-        ariaLabel="Modifier le creneau de reservation"
+        ariaLabel="Modifier le créneau de réservation"
         variant="outline"
         size="md"
+        className="min-h-11"
         onClick={onEdit}
       >
         Modifier
@@ -1113,22 +1273,117 @@ function ReservationPlanningModal({
   onApply: () => void;
   hasActiveHold: boolean;
 }) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const titleRef = useRef<HTMLHeadingElement | null>(null);
+  const descriptionIds = hasActiveHold
+    ? "planning-modal-description planning-modal-note"
+    : "planning-modal-description";
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const frame = window.requestAnimationFrame(() => {
+      titleRef.current?.focus();
+    });
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const dialog = dialogRef.current;
+      if (!dialog) {
+        return;
+      }
+
+      const focusableElements = getFocusableElements(dialog);
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        titleRef.current?.focus();
+        return;
+      }
+
+      const firstFocusable = focusableElements[0];
+      const lastFocusable = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement;
+
+      if (event.shiftKey) {
+        if (
+          activeElement === firstFocusable ||
+          activeElement === titleRef.current
+        ) {
+          event.preventDefault();
+          lastFocusable.focus();
+        }
+        return;
+      }
+
+      if (activeElement === titleRef.current) {
+        event.preventDefault();
+        firstFocusable.focus();
+        return;
+      }
+
+      if (activeElement === lastFocusable) {
+        event.preventDefault();
+        firstFocusable.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/58 p-4 backdrop-blur-sm sm:items-center">
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-background/58 p-3 backdrop-blur-sm sm:items-center sm:p-4"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="planning-modal-title"
-        className="section-band w-full max-w-2xl p-5 sm:p-6"
+        aria-describedby={descriptionIds}
+        className="section-band flex max-h-[min(86svh,42rem)] w-full max-w-xl flex-col overflow-hidden p-4 sm:p-6"
+        onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 border-b border-border/60 pb-4">
           <div className="space-y-2">
             <p className="label">Planning</p>
-            <h2 id="planning-modal-title" className="heading-3 text-foreground">
-              Ajustez votre creneau
+            <h2
+              id="planning-modal-title"
+              ref={titleRef}
+              tabIndex={-1}
+              className="heading-3 text-foreground focus:outline-none"
+            >
+              Ajustez votre créneau
             </h2>
-            <p className="text-sm text-muted-foreground">
-              Dates et retrait recalculent la disponibilite.
+            <p
+              id="planning-modal-description"
+              className="text-sm text-muted-foreground"
+            >
+              Dates et retrait recalculent la disponibilité.
             </p>
           </div>
           <Button
@@ -1137,70 +1392,78 @@ function ReservationPlanningModal({
             ariaLabel="Fermer la modale de planning"
             variant="outline"
             size="md"
+            className="min-h-11 shrink-0"
             onClick={onClose}
           >
             Fermer
           </Button>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <Field label="Depart" htmlFor="planning-modal-pickup-date">
-            <Input
-              id="planning-modal-pickup-date"
-              type="date"
-              value={draft.pickupDate}
-              min={formatDateInputValue(new Date())}
-              onChange={(event) =>
-                onDraftChange({
-                  ...draft,
-                  pickupDate: event.target.value,
-                })
-              }
-            />
-          </Field>
+        <div className="mt-4 flex-1 overflow-y-auto pr-1">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Départ" htmlFor="planning-modal-pickup-date">
+              <Input
+                id="planning-modal-pickup-date"
+                type="date"
+                value={draft.pickupDate}
+                min={formatDateInputValue(new Date())}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    pickupDate: event.target.value,
+                  })
+                }
+              />
+            </Field>
 
-          <Field label="Retour" htmlFor="planning-modal-return-date">
-            <Input
-              id="planning-modal-return-date"
-              type="date"
-              value={draft.returnDate}
-              min={draft.pickupDate || formatDateInputValue(new Date())}
-              onChange={(event) =>
-                onDraftChange({
-                  ...draft,
-                  returnDate: event.target.value,
-                })
-              }
-            />
-          </Field>
+            <Field label="Retour" htmlFor="planning-modal-return-date">
+              <Input
+                id="planning-modal-return-date"
+                type="date"
+                value={draft.returnDate}
+                min={draft.pickupDate || formatDateInputValue(new Date())}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    returnDate: event.target.value,
+                  })
+                }
+              />
+            </Field>
 
-          <Field label="Retrait" htmlFor="planning-modal-pickup-mode">
-            <select
-              id="planning-modal-pickup-mode"
-              value={draft.pickupMode}
-              onChange={(event) =>
-                onDraftChange({
-                  ...draft,
-                  pickupMode: parseReservationPickupMode(event.target.value),
-                })
-              }
-              className="input-shell appearance-none pr-10"
-            >
-              {PICKUP_MODE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+            <Field label="Retrait" htmlFor="planning-modal-pickup-mode">
+              <select
+                id="planning-modal-pickup-mode"
+                value={draft.pickupMode}
+                onChange={(event) =>
+                  onDraftChange({
+                    ...draft,
+                    pickupMode: parseReservationPickupMode(event.target.value),
+                  })
+                }
+                className="input-shell appearance-none pr-10"
+              >
+                {PICKUP_MODE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
         </div>
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             {hasActiveHold
-              ? "Appliquer ces changements rouvrira la verification en cours."
-              : "Appliquer ces changements relancera la verification du creneau."}
+              ? "Appliquer ces changements rouvrira la vérification en cours."
+              : "Appliquer ces changements relancera la vérification du créneau."}
           </p>
+          {hasActiveHold ? (
+            <p id="planning-modal-note" className="sr-only">
+              Appliquer ces changements rouvrira la vérification en cours.
+            </p>
+          ) : null}
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button
               as="button"
@@ -1208,6 +1471,7 @@ function ReservationPlanningModal({
               ariaLabel="Annuler les modifications du planning"
               variant="outline"
               size="md"
+              className="min-h-11 w-full sm:w-auto"
               onClick={onClose}
             >
               Annuler
@@ -1218,6 +1482,7 @@ function ReservationPlanningModal({
               ariaLabel="Appliquer les modifications du planning"
               variant="accent"
               size="md"
+              className="min-h-11 w-full sm:w-auto"
               onClick={onApply}
             >
               Appliquer
@@ -1248,70 +1513,131 @@ function ReservationStepper({
           : 0;
 
   const steps = [
-    { title: "Verification" },
-    { title: "Dossier" },
-    { title: "Envoi" },
-    { title: "Suivi" },
+    { title: "Vérification", compactTitle: "Choix" },
+    { title: "Dossier", compactTitle: "Dossier" },
+    { title: "Envoi", compactTitle: "Envoi" },
+    { title: "Suivi", compactTitle: "Suivi" },
   ];
 
   return (
-    <div className="space-y-4 border-t border-border/60 pt-4">
-      <p className="text-sm font-medium text-muted-foreground">
-        Étape {activeIndex + 1} sur 4
-      </p>
+    <>
+      <div className="space-y-3 border-t border-border/60 pt-4 md:hidden">
+        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-foreground/68">
+          Étape {activeIndex + 1} sur 4
+        </p>
 
-      <div className="grid gap-3 sm:grid-cols-4">
-        {steps.map((step, index) => {
-          const isActive = index === activeIndex;
-          const isDone =
-            index < activeIndex || (index === 0 && hasChecked && isReady);
+        <ol
+          className="grid grid-cols-4 gap-2"
+          aria-label="Progression de la réservation"
+        >
+          {steps.map((step, index) => {
+            const isActive = index === activeIndex;
+            const isDone =
+              index < activeIndex || (index === 0 && hasChecked && isReady);
 
-          return (
-            <div key={step.title} className="min-w-0 space-y-2">
-              <div className="flex items-center gap-2">
-                <span
+            return (
+              <li key={step.title} className="min-w-0">
+                <div
                   className={cn(
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors",
+                    "flex min-h-[4.5rem] flex-col items-center justify-center gap-1 rounded-card border px-2 py-2 text-center",
                     isDone
-                      ? "border-success/20 bg-success/12 text-success"
+                      ? "border-success/20 bg-success/10"
                       : isActive
-                        ? "border-brand/20 bg-brand-soft text-brand-strong"
-                        : "border-border/70 bg-surface text-muted-foreground",
+                        ? "border-brand/20 bg-brand-soft"
+                        : "border-border/70 bg-surface/80",
                   )}
+                  aria-current={isActive ? "step" : undefined}
                 >
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                {index < steps.length - 1 ? (
                   <span
                     className={cn(
-                      "h-px flex-1",
+                      "inline-flex h-7 w-7 items-center justify-center rounded-full border text-[0.68rem] font-semibold",
                       isDone
-                        ? "bg-success/35"
+                        ? "border-success/20 bg-success/12 text-success"
                         : isActive
-                          ? "bg-brand/35"
-                          : "bg-border/80",
+                          ? "border-brand/20 bg-background text-brand-strong"
+                          : "border-border/70 bg-surface text-muted-foreground",
                     )}
-                  />
-                ) : null}
-              </div>
-              <div className="min-w-0">
-                <p
-                  className={cn(
-                    "text-sm font-semibold",
-                    isActive || isDone
-                      ? "text-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {step.title}
-                </p>
-              </div>
-            </div>
-          );
-        })}
+                  >
+                    {index + 1}
+                  </span>
+                  <span
+                    className={cn(
+                      "text-[0.7rem] font-semibold leading-tight",
+                      isActive || isDone
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {step.compactTitle}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
       </div>
 
-    </div>
+      <div className="hidden space-y-4 border-t border-border/60 pt-4 md:block">
+        <p className="text-sm font-medium text-muted-foreground">
+          Étape {activeIndex + 1} sur 4
+        </p>
+
+        <ol
+          className="grid gap-3 sm:grid-cols-4"
+          aria-label="Progression de la réservation"
+        >
+          {steps.map((step, index) => {
+            const isActive = index === activeIndex;
+            const isDone =
+              index < activeIndex || (index === 0 && hasChecked && isReady);
+
+            return (
+              <li key={step.title} className="min-w-0 space-y-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors",
+                      isDone
+                        ? "border-success/20 bg-success/12 text-success"
+                        : isActive
+                          ? "border-brand/20 bg-brand-soft text-brand-strong"
+                          : "border-border/70 bg-surface text-muted-foreground",
+                    )}
+                    aria-current={isActive ? "step" : undefined}
+                  >
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  {index < steps.length - 1 ? (
+                    <span
+                      className={cn(
+                        "h-px flex-1",
+                        isDone
+                          ? "bg-success/35"
+                          : isActive
+                            ? "bg-brand/35"
+                            : "bg-border/80",
+                      )}
+                    />
+                  ) : null}
+                </div>
+                <div className="min-w-0">
+                  <p
+                    className={cn(
+                      "text-sm font-semibold",
+                      isActive || isDone
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {step.title}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </>
   );
 }
 
@@ -1329,7 +1655,7 @@ function ReservationResultCard({
   }
 
   return (
-    <section id="confirmation-preview">
+    <section id="confirmation-preview" aria-live="polite">
       <div className={cn("space-y-4 border-b border-warning/20 pb-8")}>
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
@@ -1343,7 +1669,7 @@ function ReservationResultCard({
 
           <div className="space-y-4">
             <h2 className="heading-3 text-foreground">
-              Ce creneau ne fonctionne pas encore.
+              Ce créneau ne fonctionne pas encore.
             </h2>
             <p className="body-copy text-muted-foreground">
               Ajustez les dates, le retrait ou choisissez une autre moto.
@@ -1430,7 +1756,6 @@ function getReservationSurfaceContext({
   paymentReady,
   confirmationReady,
   selectionHref,
-  clientHref,
   catalogHref,
 }: {
   viewStage: ReservationStage;
@@ -1441,48 +1766,47 @@ function getReservationSurfaceContext({
   paymentReady: boolean;
   confirmationReady: boolean;
   selectionHref: string;
-  clientHref: string;
   catalogHref: string;
 }): ReservationSurfaceContext {
   const currentStageLabel =
     viewStage === "confirmed"
       ? "Suivi"
       : viewStage === "payment"
-        ? "Envoi"
-        : viewStage === "client"
-          ? "Dossier"
-          : "Verification";
+      ? "Envoi"
+      : viewStage === "client"
+        ? "Dossier"
+          : "Vérification";
 
   const eyebrow =
     viewStage === "confirmed"
       ? "Suivi"
       : viewStage === "payment"
-        ? "Envoi"
-        : viewStage === "client"
-          ? "Dossier"
-          : "Verification";
+      ? "Envoi"
+      : viewStage === "client"
+        ? "Dossier"
+          : "Vérification";
 
   const title =
     viewStage === "confirmed"
       ? confirmationReady
-        ? "Votre reservation est confirmee."
-        : "Votre demande a bien ete envoyee."
+        ? "Votre réservation est confirmée."
+        : "Votre demande a bien été envoyée."
       : viewStage === "payment"
-        ? "Verifiez avant d'envoyer."
+        ? "Vérifiez avant d'envoyer."
       : viewStage === "client"
           ? "Renseignez votre dossier."
-          : "Verifiez votre creneau.";
+          : "Vérifiez votre créneau.";
 
   const description =
     viewStage === "confirmed"
       ? confirmationReady
-        ? "Conservez la reference. Le paiement se fera au retrait."
-        : "Nous reviendrons vers vous pour confirmer la reservation et le retrait."
+        ? "Conservez la référence. Le paiement se fera au retrait."
+        : "Nous reviendrons vers vous pour confirmer la réservation et le retrait."
       : viewStage === "payment"
-        ? "Controlez les informations utiles avant l'envoi. Le paiement se fera au retrait."
+        ? "Contrôlez les informations utiles avant l'envoi. Le paiement se fera au retrait."
       : viewStage === "client"
-        ? "Vos coordonnees et votre permis suffisent pour envoyer la demande."
-        : "Choisissez la moto, vos dates, votre retrait et votre permis.";
+        ? "Vos coordonnées et votre permis suffisent pour envoyer la demande."
+        : "Choisissez la moto, vos dates et le retrait.";
 
   const statusTone =
     viewStage === "confirmed"
@@ -1506,21 +1830,21 @@ function getReservationSurfaceContext({
   const statusLabel =
     viewStage === "confirmed"
       ? confirmationReady
-        ? "Confirmee"
+        ? "Confirmée"
         : "En attente"
       : viewStage === "payment"
         ? paymentReady
-          ? "Envoyee"
-          : "Pret a envoyer"
+          ? "Envoyée"
+          : "Prête à envoyer"
         : viewStage === "client"
           ? readyForPreparation
-            ? "Pret a envoyer"
-            : "A completer"
+            ? "Prête à envoyer"
+            : "À compléter"
           : hasChecked
             ? isReady
               ? "Compatible"
-              : "A corriger"
-            : "A verifier";
+              : "À corriger"
+            : "À vérifier";
 
   const primaryActionLabel =
     viewStage === "confirmed"
@@ -1528,17 +1852,17 @@ function getReservationSurfaceContext({
         ? "Retour au catalogue"
         : "Retour aux motos"
       : viewStage === "payment"
-        ? "Retour au dossier"
+        ? "Envoyer la demande"
       : viewStage === "client"
-        ? readyForPreparation
-          ? "Continuer vers l'envoi"
-          : "Completer les champs requis"
+        ? "Continuer"
       : hasSelectedMotorcycle
-        ? "Verifier"
+        ? hasChecked && isReady
+          ? "Continuer"
+          : "Vérifier la disponibilité"
         : "Ouvrir le catalogue";
 
   const primaryActionType =
-    viewStage === "payment" || viewStage === "confirmed"
+    viewStage === "confirmed"
       ? "link"
       : hasSelectedMotorcycle
         ? "button"
@@ -1546,22 +1870,18 @@ function getReservationSurfaceContext({
   const primaryActionHref =
     viewStage === "confirmed"
       ? catalogHref
-      : viewStage === "payment"
-        ? clientHref
-        : hasSelectedMotorcycle
-          ? null
-          : catalogHref;
+      : hasSelectedMotorcycle
+        ? null
+        : catalogHref;
   const primaryActionVariant =
     viewStage === "confirmed"
       ? confirmationReady
         ? "accent"
         : "outline"
       : viewStage === "payment"
-        ? "outline"
+        ? "accent"
         : hasSelectedMotorcycle
-          ? readyForPreparation
-            ? "accent"
-            : "outline"
+          ? "accent"
           : "accent";
 
   const secondaryActionLabel =
@@ -1570,7 +1890,7 @@ function getReservationSurfaceContext({
       : viewStage === "payment"
         ? "Modifier mes dates"
         : viewStage === "client"
-          ? "Modifier mes dates"
+          ? "Modifier la réservation"
           : hasSelectedMotorcycle
             ? "Voir les conditions"
             : "Voir les conditions";
@@ -1643,7 +1963,7 @@ function getReservationSidebarAction({
       : {
           label: "Voir les motos",
           href: catalogHref,
-          ariaLabel: "Retourner a la page motos",
+          ariaLabel: "Retourner à la page motos",
         };
   }
 
@@ -1657,22 +1977,16 @@ function getReservationSidebarAction({
       : {
           label: "Envoyer la demande",
           href: paymentHref,
-          ariaLabel: "Ouvrir l'étape de validation",
+          ariaLabel: "Envoyer la demande de réservation",
         };
   }
 
   if (viewStage === "client") {
-    return readyForPreparation
-      ? {
-          label: "Envoyer la demande",
-          href: paymentHref,
-          ariaLabel: "Continuer vers l'envoi de la demande",
-        }
-      : {
-          label: "Compléter le dossier",
-          href: clientHref,
-          ariaLabel: "Reprendre le dossier client",
-        };
+    return {
+      label: "Continuer",
+      href: readyForPreparation ? paymentHref : clientHref,
+      ariaLabel: "Continuer dans le tunnel de réservation",
+    };
   }
 
   return hasChecked && isReady
@@ -1682,15 +1996,90 @@ function getReservationSidebarAction({
         ariaLabel: "Continuer vers le dossier client",
       }
     : {
-        label: "Verifier le creneau",
+        label: "Vérifier la disponibilité",
         href: selectionHref,
-        ariaLabel: "Reprendre la sélection de réservation",
+        ariaLabel: "Vérifier la disponibilité du créneau",
       };
+}
+
+function ReservationMobileSummary({
+  motorcycle,
+  pickupDate,
+  returnDate,
+  pickupMode,
+  hasActiveHold,
+  actions,
+  onEdit,
+}: {
+  motorcycle: CatalogMotorcycle | null;
+  pickupDate: string;
+  returnDate: string;
+  pickupMode: ReservationPickupMode;
+  hasActiveHold: boolean;
+  actions: ReservationSurfaceContext;
+  onEdit: () => void;
+}) {
+  const pickupLabel =
+    pickupMode === "motorcycle-location"
+      ? motorcycle?.locationLabel ?? "Retrait sur place"
+      : (PICKUP_MODE_OPTIONS.find((option) => option.value === pickupMode)
+          ?.label ?? "À définir");
+
+  return (
+    <div className="section-band p-4 md:hidden">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 space-y-2">
+          <Badge variant={actions.statusTone} size="sm">
+            {actions.statusLabel}
+          </Badge>
+          <h2 className="text-base font-semibold leading-tight text-foreground">
+            {motorcycle
+              ? `${motorcycle.brand} ${motorcycle.name}`
+              : "Moto à choisir"}
+          </h2>
+          {!motorcycle ? (
+            <p className="text-sm text-muted-foreground">
+              Choisissez un modèle puis vérifiez le créneau.
+            </p>
+          ) : null}
+        </div>
+
+        <Button
+          as="button"
+          type="button"
+          ariaLabel="Modifier le créneau de réservation"
+          variant="outline"
+          size="md"
+          className="min-h-11 shrink-0 px-4"
+          onClick={onEdit}
+        >
+          Modifier
+        </Button>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <ReservationCompactFact
+          label="Créneau"
+          value={formatDateRange(pickupDate, returnDate)}
+        />
+        <ReservationCompactFact label="Retrait" value={pickupLabel} />
+        <ReservationCompactFact
+          label="Permis"
+          value={motorcycle?.licenseCategory ?? "À vérifier"}
+        />
+      </div>
+
+      {hasActiveHold ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          Modifier ce créneau relancera la vérification en cours.
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 function ReservationMobileDock({
   motorcycle,
-  evaluation,
   actions,
   pickupDate,
   returnDate,
@@ -1700,7 +2089,6 @@ function ReservationMobileDock({
   onPrimaryAction,
 }: {
   motorcycle: CatalogMotorcycle | null;
-  evaluation: ReturnType<typeof evaluateReservation>;
   actions: ReservationSurfaceContext;
   pickupDate: string;
   returnDate: string;
@@ -1717,33 +2105,25 @@ function ReservationMobileDock({
           ?.label ?? "À définir");
 
   return (
-    <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-0 right-0 z-40 px-4 md:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden">
       <div className="overlay-sheet mx-auto max-w-md p-3 shadow-[var(--shadow-elevated)]">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="meta-label">{actions.eyebrow}</p>
-            <p className="mt-2 truncate body-copy font-semibold text-foreground">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="meta-label">Action</p>
+              <Badge variant={actions.statusTone} size="sm">
+                {actions.statusLabel}
+              </Badge>
+            </div>
+            <p className="mt-1 truncate text-sm font-semibold text-foreground">
               {motorcycle
                 ? `${motorcycle.brand} ${motorcycle.name}`
-                : "Moto a choisir"}
+                : "Moto à choisir"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {motorcycle
-                ? `${formatMoney(motorcycle.priceFrom.amount, motorcycle.priceFrom.currency)}/jour • ${evaluation.pickupLabel}`
-                : actions.description}
+              {formatDateRange(pickupDate, returnDate)} • {pickupLabel}
             </p>
           </div>
-          <Badge variant={actions.statusTone} size="sm">
-            {actions.statusLabel}
-          </Badge>
-        </div>
-
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <MiniStat
-            label="Créneau"
-            value={formatDateRange(pickupDate, returnDate)}
-          />
-          <MiniStat label="Retrait" value={pickupLabel} />
         </div>
 
         <div className="mt-3 grid gap-2">
@@ -1754,7 +2134,7 @@ function ReservationMobileDock({
               ariaLabel={actions.primaryActionLabel}
               variant={actions.primaryActionVariant}
               size="md"
-              className="w-full"
+              className="min-h-11 w-full"
               onClick={onPrimaryAction}
             >
               {actions.primaryActionLabel}
@@ -1766,27 +2146,44 @@ function ReservationMobileDock({
               ariaLabel={actions.primaryActionLabel}
               variant={actions.primaryActionVariant}
               size="md"
-              className="w-full"
+              className="min-h-11 w-full"
             >
               {actions.primaryActionLabel}
             </Button>
           )}
 
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-muted-foreground">
+            <span className="text-[0.72rem] text-muted-foreground">
               {clientValidation.readyForReview
-                ? "dossier pret"
+                ? "Prêt pour l'étape suivante"
                 : clientDraftStatusLabel}
             </span>
             <Link
               href={actions.secondaryActionHref}
-              className="text-xs font-semibold text-brand transition-colors hover:text-brand-strong"
+              className="inline-flex min-h-11 items-center text-sm font-semibold text-brand transition-colors hover:text-brand-strong"
             >
               {actions.secondaryActionLabel}
             </Link>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ReservationCompactFact({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-card border border-border/60 bg-surface/72 px-3 py-3">
+      <p className="meta-label">{label}</p>
+      <p className="mt-2 text-sm font-semibold leading-tight text-foreground">
+        {value}
+      </p>
     </div>
   );
 }
@@ -1808,5 +2205,81 @@ function Field({
       {children}
       {help ? <p className="field-help">{help}</p> : null}
     </div>
+  );
+}
+
+function getMobileReservationHeaderCopy({
+  viewStage,
+  confirmationReady,
+}: {
+  viewStage: ReservationStage;
+  confirmationReady: boolean;
+}) {
+  if (viewStage === "confirmed") {
+    return confirmationReady
+      ? {
+          title: "Votre réservation est confirmée.",
+          description: "Conservez la référence et préparez le retrait.",
+        }
+      : {
+          title: "Demande envoyée.",
+          description: "Nous revenons vers vous pour confirmer le retrait.",
+        };
+  }
+
+  if (viewStage === "payment") {
+    return {
+      title: "Vérifiez avant d'envoyer.",
+      description: "Contrôlez les informations utiles avant la validation.",
+    };
+  }
+
+  if (viewStage === "client") {
+    return {
+      title: "Finalisez votre réservation.",
+      description: "Complétez le dossier, puis validez l'envoi.",
+    };
+  }
+
+  return {
+    title: "Finalisez votre réservation.",
+    description: "Choisissez le créneau, complétez le dossier, puis validez.",
+  };
+}
+
+function getReservationStageAnnouncement({
+  viewStage,
+  confirmationReady,
+}: {
+  viewStage: ReservationStage;
+  confirmationReady: boolean;
+}) {
+  if (viewStage === "confirmed") {
+    return confirmationReady
+      ? "Étape suivi. Votre réservation est confirmée."
+      : "Étape suivi. Votre demande a bien été envoyée.";
+  }
+
+  if (viewStage === "payment") {
+    return "Étape envoi. Vérifiez les informations avant d'envoyer votre demande.";
+  }
+
+  if (viewStage === "client") {
+    return "Étape dossier. Complétez les informations nécessaires pour poursuivre.";
+  }
+
+  return "Étape vérification. Choisissez le créneau et vérifiez la disponibilité.";
+}
+
+function getFocusableElements(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter(
+    (element) =>
+      !element.hasAttribute("hidden") &&
+      element.getAttribute("aria-hidden") !== "true" &&
+      element.getClientRects().length > 0,
   );
 }

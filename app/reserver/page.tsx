@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Réservation premium | Allo Moto",
   description:
-    "Verifiez le creneau, renseignez le dossier, puis envoyez votre demande de reservation.",
+    "Vérifiez le créneau, renseignez le dossier, puis envoyez votre demande de réservation.",
 };
 
 export default async function ReservationPage({

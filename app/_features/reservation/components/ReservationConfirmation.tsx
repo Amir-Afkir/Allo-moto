@@ -33,7 +33,7 @@ export function ReservationConfirmation({
   const summaryMotorcycle = motorcycle ?? null;
   const contactValue =
     snapshot.supportLines.find((line) => line.label === "Contact")?.value ??
-    "A completer";
+    "À compléter";
 
   async function handleCopyReference() {
     try {
@@ -49,7 +49,7 @@ export function ReservationConfirmation({
     return (
       <section className="border-b border-border/60 pb-8">
         <EmptyState
-          title="Le suivi n'est pas pret."
+          title="Le suivi n'est pas prêt."
           description="Revenez au dossier pour terminer la demande."
           action={
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -65,11 +65,11 @@ export function ReservationConfirmation({
               <Button
                 as="link"
                 href={paymentHref}
-                ariaLabel="Revenir a la validation"
+                ariaLabel="Revenir à la validation"
                 variant="outline"
                 size="md"
               >
-                Retour a la validation
+                Retour à la validation
               </Button>
             </div>
           }
@@ -83,10 +83,10 @@ export function ReservationConfirmation({
       <div className="space-y-3 border-b border-border/60 pb-6">
         <h2 className="heading-2 text-foreground">
           {snapshot.state === "confirmed"
-            ? "Votre reservation est confirmee."
+            ? "Votre réservation est confirmée."
             : snapshot.state === "pending_validation"
-              ? "Votre demande a bien ete envoyee."
-              : "Votre demande doit encore etre completee."}
+              ? "Votre demande a bien été envoyée."
+              : "Votre demande doit encore être complétée."}
         </h2>
         <p className="max-w-2xl body-copy text-muted-foreground">
           {snapshot.heroCopy}
@@ -106,18 +106,18 @@ export function ReservationConfirmation({
         <Button
           as="button"
           type="button"
-          ariaLabel="Copier la reference de reservation"
+          ariaLabel="Copier la référence de réservation"
           variant="outline"
           size="md"
           onClick={handleCopyReference}
         >
-          {copied ? "Reference copiee" : "Copier la reference"}
+          {copied ? "Référence copiée" : "Copier la référence"}
         </Button>
       </div>
 
       {snapshot.blockingItems.length > 0 ? (
         <div className="rounded-card border border-warning/20 bg-warning/8 p-4">
-          <p className="body-copy font-semibold text-foreground">A corriger</p>
+          <p className="body-copy font-semibold text-foreground">À corriger</p>
           <ul className="mt-3 space-y-2 body-copy text-foreground/78">
             {snapshot.blockingItems.map((item) => (
               <li key={item} className="flex gap-2">
@@ -134,13 +134,13 @@ export function ReservationConfirmation({
           <p className="label">Suite</p>
           <p className="text-sm text-muted-foreground">
             {snapshot.state === "confirmed"
-              ? "Conservez la reference et presentez-vous au retrait pour regler la location."
+              ? "Conservez la référence et présentez-vous au retrait pour régler la location."
               : snapshot.state === "pending_validation"
-                ? "Nous reviendrons vers vous pour confirmer la reservation. Le paiement se fera au retrait."
-                : "Revenez au dossier pour completer les elements manquants."}
+                ? "Nous reviendrons vers vous pour confirmer la réservation. Le paiement se fera au retrait."
+                : "Revenez au dossier pour compléter les éléments manquants."}
           </p>
           <p className="text-sm text-muted-foreground">
-            Contact de suivi: {contactValue}
+            Contact de suivi : {contactValue}
           </p>
         </div>
 
@@ -159,7 +159,7 @@ export function ReservationConfirmation({
             <Button
               as="link"
               href={catalogHref}
-              ariaLabel="Retourner a la page motos"
+              ariaLabel="Retourner à la page motos"
               variant="accent"
               size="lg"
             >

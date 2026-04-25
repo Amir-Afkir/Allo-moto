@@ -46,8 +46,8 @@ export function ReservationPayment({
     return (
       <section className="border-b border-border/60 pb-8">
         <EmptyState
-          title="La demande n'est pas prete."
-          description="Choisissez une moto, verifiez le creneau, puis completez le dossier."
+          title="La demande n'est pas prête."
+          description="Choisissez une moto, vérifiez le créneau, puis complétez le dossier."
           action={
             <Button
               as="link"
@@ -66,7 +66,7 @@ export function ReservationPayment({
 
   const fullName =
     [clientDraft.firstName, clientDraft.lastName].filter(Boolean).join(" ") ||
-    "Client a confirmer";
+    "Client à confirmer";
 
   const summaryFacts = [
     {
@@ -78,12 +78,12 @@ export function ReservationPayment({
       note: `${Math.max(evaluation.durationDays, 1)} jour${evaluation.durationDays > 1 ? "s" : ""}`,
     },
     {
-      label: "Depot",
+      label: "Dépôt",
       value: formatMoney(
         motorcycle.deposit.amount,
         motorcycle.deposit.currency,
       ),
-      note: "A regler ou autoriser au retrait",
+      note: "À régler ou autoriser au retrait",
     },
     {
       label: "Paiement",
@@ -123,7 +123,7 @@ export function ReservationPayment({
           <ReviewFact label="Retrait" value={evaluation.pickupLabel} />
           <ReviewFact
             label="Contact"
-            value={clientDraft.email || clientDraft.phone || "A completer"}
+            value={clientDraft.email || clientDraft.phone || "À compléter"}
           />
         </div>
       </div>
@@ -140,15 +140,15 @@ export function ReservationPayment({
             </p>
           </li>
           <li className="space-y-1">
-            <p className="meta-label">Piece d&apos;identite</p>
+            <p className="meta-label">Pièce d&apos;identité</p>
             <p className="text-sm text-foreground/78">
-              Une piece d&apos;identite en cours de validite pourra etre demandee.
+              Une pièce d&apos;identité en cours de validité pourra être demandée.
             </p>
           </li>
           <li className="space-y-1">
-            <p className="meta-label">Acompte / depot</p>
+            <p className="meta-label">Acompte / dépôt</p>
             <p className="text-sm text-foreground/78">
-              Le depot est a regler ou autoriser sur place au retrait.
+              Le dépôt est à régler ou autoriser sur place au retrait.
             </p>
           </li>
           <li className="space-y-1">
@@ -162,8 +162,8 @@ export function ReservationPayment({
 
       <div className="space-y-3 border-t border-border/60 pt-6">
         <p className="text-sm text-muted-foreground">
-          Une reference sera creee a l&apos;envoi. Nous reviendrons vers vous pour
-          confirmer la reservation.
+          Une référence sera créée à l&apos;envoi. Nous reviendrons vers vous pour
+          confirmer la réservation.
         </p>
         {submitError ? (
           <p className="text-sm text-warning">{submitError}</p>

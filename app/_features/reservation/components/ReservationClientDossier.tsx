@@ -136,7 +136,7 @@ export function ReservationClientDossier({
         <div className="max-w-2xl space-y-3">
           <h2 className="heading-2 text-foreground">Renseignez votre dossier.</h2>
           <p className="body-copy text-muted-foreground">
-            Coordonnees, permis et consentement suffisent pour continuer.
+            Coordonnées, permis et consentement suffisent pour continuer.
           </p>
         </div>
         <div
@@ -146,6 +146,7 @@ export function ReservationClientDossier({
               ? "border-success/20 bg-success/8 text-foreground/80"
               : "border-warning/20 bg-warning/8 text-foreground/80",
           )}
+          aria-live="polite"
         >
           {permitCompatibilityMessage ? (
             <p>
@@ -467,7 +468,7 @@ export function ReservationClientDossier({
             <Button
               as="button"
               type="submit"
-              ariaLabel="Continuer vers la validation"
+              ariaLabel="Continuer"
               variant="accent"
               size="lg"
               disabled={Boolean(permitCompatibilityMessage)}

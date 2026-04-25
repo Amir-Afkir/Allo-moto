@@ -18,6 +18,7 @@ type SelectedMotorcycleCardProps = {
   footerNote?: ReactNode;
   headerLabel?: string;
   className?: string;
+  priority?: boolean;
 };
 
 export function SelectedMotorcycleCard({
@@ -30,6 +31,7 @@ export function SelectedMotorcycleCard({
   footerNote,
   headerLabel = "Moto retenue",
   className,
+  priority = false,
 }: SelectedMotorcycleCardProps) {
   return (
     <div className={cn("section-band card-motion overflow-hidden", className)}>
@@ -37,7 +39,7 @@ export function SelectedMotorcycleCard({
         motorcycle={motorcycle}
         className="h-[15.75rem]"
         imageSrc={motorcycle.primaryImage || motorcycle.gallery[0]}
-        priority
+        priority={priority}
       >
         <div className="relative z-10 flex h-full flex-col justify-between p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">

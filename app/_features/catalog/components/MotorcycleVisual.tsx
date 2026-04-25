@@ -18,6 +18,7 @@ type MotorcycleVisualProps = {
   priority?: boolean;
   imageSrc?: string;
   children?: ReactNode;
+  fallbackVariant?: "content" | "monogram";
 };
 
 export function MotorcycleVisual({
@@ -27,6 +28,7 @@ export function MotorcycleVisual({
   priority = false,
   imageSrc,
   children,
+  fallbackVariant = "content",
 }: MotorcycleVisualProps) {
   const resolvedImageSrc = imageSrc || motorcycle.primaryImage || motorcycle.gallery[0] || "";
 
@@ -57,13 +59,21 @@ export function MotorcycleVisual({
 
       <div className="relative z-10 h-full w-full">
         {children ?? (
-          <div className="flex h-full items-end justify-between p-6 sm:p-8">
-            <div className="max-w-[18rem] space-y-2">
-              <p className="meta-label">{motorcycle.brand}</p>
-              <p className="heading-3 text-foreground">{motorcycle.name}</p>
+          fallbackVariant === "monogram" ? (
+            <div className="flex h-full items-end justify-end p-5 sm:p-6">
+              <div className="font-display text-5xl leading-none text-foreground/14 sm:text-6xl">
+                {motorcycle.monogram}
+              </div>
             </div>
-            <div className="font-display text-5xl leading-none text-foreground/12">{motorcycle.monogram}</div>
-          </div>
+          ) : (
+            <div className="flex h-full items-end justify-between p-6 sm:p-8">
+              <div className="max-w-[18rem] space-y-2">
+                <p className="meta-label">{motorcycle.brand}</p>
+                <p className="heading-3 text-foreground">{motorcycle.name}</p>
+              </div>
+              <div className="font-display text-5xl leading-none text-foreground/12">{motorcycle.monogram}</div>
+            </div>
+          )
         )}
       </div>
     </div>
