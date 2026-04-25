@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Section from "@/app/_shared/components/Section";
 import { buildReservationHref } from "@/app/_shared/lib/navigation";
 import { formatMoney } from "@/app/_shared/lib/format";
@@ -25,13 +26,13 @@ export default function MotoSelection({
     <Section
       id="featured-motos"
       title="Quelques motos à considérer."
-      subtitle="Si un modèle vous plaît, vérifiez ensuite le créneau avant d’ouvrir le dossier."
+      subtitle="Repérez le bon modèle, puis vérifiez le créneau avant d’ouvrir le dossier."
     >
       <div className="space-y-6">
         <FeaturedMotoCard motorcycle={spotlight} />
 
         <div className="space-y-4">
-          <p className="label">Modèles en vue</p>
+          <p className="label">Autres modèles</p>
           <div className="grid gap-5 lg:grid-cols-2">
             {secondaryMotorcycles.map((motorcycle, index) => (
               <SecondaryMotoCard
@@ -128,11 +129,11 @@ function FeaturedMotoCard({ motorcycle }: { motorcycle: CatalogMotorcycle }) {
                   href={`${buildReservationHref(motorcycle.slug, {
                     stage: "selection",
                   })}#reservation-form`}
-                  ariaLabel={`Vérifier les dates pour ${motorcycle.brand} ${motorcycle.name}`}
+                  ariaLabel={`Vérifier le créneau pour ${motorcycle.brand} ${motorcycle.name}`}
                   variant="accent"
                   size="lg"
                 >
-                  Vérifier mes dates
+                  Vérifier le créneau
                 </ButtonLink>
               </div>
             </div>
@@ -157,12 +158,12 @@ function FeaturedMotoCard({ motorcycle }: { motorcycle: CatalogMotorcycle }) {
           href={`${buildReservationHref(motorcycle.slug, {
             stage: "selection",
           })}#reservation-form`}
-          ariaLabel={`Vérifier les dates pour ${motorcycle.brand} ${motorcycle.name}`}
+          ariaLabel={`Vérifier le créneau pour ${motorcycle.brand} ${motorcycle.name}`}
           variant="accent"
           size="lg"
           className="min-h-11 w-full"
         >
-          Vérifier mes dates
+          Vérifier le créneau
         </ButtonLink>
       </div>
     </article>
@@ -231,26 +232,25 @@ function SecondaryMotoCard({
               </Badge>
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              <ButtonLink
-                href={`/motos/${motorcycle.slug}`}
-                prefetch
-                ariaLabel={`Voir la fiche de ${motorcycle.brand} ${motorcycle.name}`}
-                variant="primary"
-                size="md"
-              >
-                Voir la fiche
-              </ButtonLink>
+            <div className="mt-5 flex flex-wrap items-center gap-4">
               <ButtonLink
                 href={`${buildReservationHref(motorcycle.slug, {
                   stage: "selection",
                 })}#reservation-form`}
-                ariaLabel={`Choisir ${motorcycle.brand} ${motorcycle.name} puis vérifier le créneau`}
-                variant="outline"
+                ariaLabel={`Vérifier le créneau pour ${motorcycle.brand} ${motorcycle.name}`}
+                variant="accent"
                 size="md"
               >
-                Choisir ce modèle
+                Vérifier le créneau
               </ButtonLink>
+              <Link
+                href={`/motos/${motorcycle.slug}`}
+                prefetch
+                aria-label={`Voir la fiche de ${motorcycle.brand} ${motorcycle.name}`}
+                className="text-sm font-semibold text-white transition-colors hover:text-white/78 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/45 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+              >
+                Voir la fiche
+              </Link>
             </div>
           </div>
         </div>
@@ -269,28 +269,26 @@ function SecondaryMotoCard({
 
         <MotoSpecLine motorcycle={motorcycle} />
 
-        <div className="grid gap-2 min-[390px]:grid-cols-2">
-          <ButtonLink
-            href={`/motos/${motorcycle.slug}`}
-            prefetch
-            ariaLabel={`Voir la fiche de ${motorcycle.brand} ${motorcycle.name}`}
-            variant="primary"
-            size="md"
-            className="min-h-11 px-3 text-sm"
-          >
-            Voir la fiche
-          </ButtonLink>
+        <div className="space-y-3">
           <ButtonLink
             href={`${buildReservationHref(motorcycle.slug, {
               stage: "selection",
             })}#reservation-form`}
-            ariaLabel={`Choisir ${motorcycle.brand} ${motorcycle.name} puis vérifier le créneau`}
-            variant="outline"
+            ariaLabel={`Vérifier le créneau pour ${motorcycle.brand} ${motorcycle.name}`}
+            variant="accent"
             size="md"
             className="min-h-11 px-3 text-sm"
           >
-            Choisir ce modèle
+            Vérifier le créneau
           </ButtonLink>
+          <Link
+            href={`/motos/${motorcycle.slug}`}
+            prefetch
+            aria-label={`Voir la fiche de ${motorcycle.brand} ${motorcycle.name}`}
+            className="inline-flex min-h-10 items-center justify-center rounded-control px-3 text-sm font-semibold text-brand transition-colors hover:text-brand-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            Voir la fiche
+          </Link>
         </div>
       </div>
     </article>

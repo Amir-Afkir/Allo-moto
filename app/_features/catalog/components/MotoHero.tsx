@@ -34,17 +34,14 @@ export default function MotoHero() {
                 <div className="max-w-[46rem] sm:max-w-[48rem] lg:max-w-[52rem]">
                   <h1 className="font-body text-[clamp(2.18rem,10.5vw,3.08rem)] font-extrabold leading-[0.98] tracking-[-0.02em] text-[#221915] text-balance drop-shadow-[0_1px_18px_rgba(252,247,240,0.62)] sm:text-[clamp(2.75rem,5.8vw,4.9rem)] sm:leading-[0.92] sm:tracking-[-0.06em] sm:drop-shadow-none">
                     <span className="block">Louez votre moto</span>
-                    <span className="block sm:hidden">à Orléans.</span>
-                    <span className="hidden sm:block">
-                      en quelques minutes.
-                    </span>
+                    <span className="block">à Orléans.</span>
                   </h1>
                   <p className="mt-3 max-w-[22rem] text-[0.98rem] leading-[1.6] text-[#5f5048] sm:hidden">
                     Créneau, modèle, dossier : tout est guidé.
                   </p>
                   <p className="mt-4 hidden max-w-[34rem] text-[1.08rem] leading-[1.6] text-[#6c5b4f] sm:block">
-                    Définissez votre créneau, comparez les motos vraiment
-                    réservables, puis finalisez le dossier.
+                    Créneau, modèle, dossier : tout est guidé avant votre
+                    départ d’Orléans.
                   </p>
                 </div>
 
@@ -72,16 +69,15 @@ export default function MotoHero() {
               <div className="hidden max-w-[62rem] space-y-2 sm:block">
                 <h2 className="font-body text-[clamp(1.25rem,6vw,1.65rem)] leading-[1.02] tracking-[-0.035em] text-foreground text-balance sm:text-[clamp(1.45rem,2.4vw,2.35rem)] sm:leading-[0.98] sm:tracking-[-0.055em] lg:whitespace-nowrap">
                   <span>
-                    <span className="font-extrabold">
-                      Définissez le bon créneau,
-                    </span>{" "}
+                    <span className="font-extrabold">Depuis Orléans,</span>{" "}
                     <span className="font-normal">
-                      puis choisissez la bonne moto.
+                      choisissez le bon créneau, puis la bonne moto.
                     </span>
                   </span>
                 </h2>
                 <p className="text-[1rem] leading-[1.6] text-muted-foreground sm:text-[1.05rem]">
-                  Allo Moto — Louer devient évident.
+                  Loire, forêt d’Orléans, châteaux : la sortie se prépare
+                  avant le départ.
                 </p>
               </div>
 
