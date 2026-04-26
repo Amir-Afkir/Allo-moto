@@ -248,12 +248,12 @@ export default function MotoDestinations() {
 
           <ButtonLink
             href={CATALOG_AVAILABILITY_HREF}
-            ariaLabel="Voir les motos disponibles pour une balade autour d’Orléans"
+            ariaLabel="Voir les disponibilités pour une balade autour d’Orléans"
             variant="accent"
             size="lg"
             className="min-h-11 w-full"
           >
-            Voir les motos disponibles
+            Voir les disponibilités
           </ButtonLink>
         </div>
       </div>

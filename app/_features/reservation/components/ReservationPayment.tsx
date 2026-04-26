@@ -108,7 +108,7 @@ export function ReservationPayment({
 
       <div className="space-y-4">
         <div>
-          <p className="label">Recapitulatif</p>
+          <p className="label">Récapitulatif</p>
           <h3 className="mt-3 heading-3 text-foreground">
             {motorcycle.brand} {motorcycle.name}
           </h3>
@@ -117,7 +117,7 @@ export function ReservationPayment({
         <div className="grid gap-3 sm:grid-cols-2">
           <ReviewFact label="Client" value={fullName} />
           <ReviewFact
-            label="Periode"
+            label="Période"
             value={formatDateRange(draft.pickupDate, draft.returnDate)}
           />
           <ReviewFact label="Retrait" value={evaluation.pickupLabel} />
@@ -130,7 +130,7 @@ export function ReservationPayment({
 
       <div className="space-y-3 border-y border-border/60 px-4 py-4">
         <p className="body-copy font-semibold text-foreground">
-          A prevoir pour le retrait
+          À prévoir pour le retrait
         </p>
         <ul className="grid gap-3 sm:grid-cols-2">
           <li className="space-y-1">
@@ -166,7 +166,9 @@ export function ReservationPayment({
           confirmer la réservation.
         </p>
         {submitError ? (
-          <p className="text-sm text-warning">{submitError}</p>
+          <p className="rounded-card border border-warning/20 bg-warning/8 px-4 py-3 text-sm text-foreground/80">
+            {submitError}
+          </p>
         ) : null}
       </div>
 
@@ -209,7 +211,7 @@ export function ReservationPayment({
                 aria-label="Voir le suivi de réservation"
                 className="font-semibold text-brand transition-colors hover:text-brand-strong"
               >
-                Ouvrir le suivi
+                Voir le suivi
               </Link>
             ) : null}
           </div>

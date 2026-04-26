@@ -180,7 +180,7 @@ export function MotoFilterBar({
             onClick={openPlanningFilter}
           />
           <MobileToggleButton
-            label={showOnlyAvailable ? "Disponibles" : "Toutes"}
+            label={showOnlyAvailable ? "Disponibles" : "Toutes les motos"}
             pressed={showOnlyAvailable}
             onClick={onAvailabilityToggle}
           />
@@ -201,8 +201,12 @@ export function MotoFilterBar({
             onChange={(value) => onChange("price", value)}
           />
           <MobileToolbarButton
-            label={advancedFilterCount > 0 ? `Plus (${advancedFilterCount})` : "Plus"}
-            value="Filtres"
+            label="Filtres"
+            value={
+              advancedFilterCount > 0
+                ? `${advancedFilterCount} actif${advancedFilterCount > 1 ? "s" : ""}`
+                : "Permis, budget, tri"
+            }
             expanded={filterSheetOpen}
             onClick={openFilterSheet}
           />

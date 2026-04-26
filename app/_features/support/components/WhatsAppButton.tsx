@@ -9,7 +9,7 @@ type WhatsAppButtonProps = {
   className?: string;
 };
 
-export default function WhatsAppButton({ href, label = "Écrire sur WhatsApp", ariaLabel, className }: WhatsAppButtonProps) {
+export default function WhatsAppButton({ href, label = "Demander sur WhatsApp", ariaLabel, className }: WhatsAppButtonProps) {
   if (!href) {
     return null;
   }

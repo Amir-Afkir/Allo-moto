@@ -26,7 +26,7 @@ export default function HeaderChrome() {
         <Link
           href="/"
           className="flex min-w-0 items-center gap-2"
-          aria-label="Aller à l’accueil"
+          aria-label="Retour à l’accueil Allo Moto"
         >
           <BrandMark size="md" priority className="h-8 w-8 shrink-0" />
           <span className="hidden truncate text-xs font-semibold tracking-[0.12em] text-foreground/72 uppercase sm:inline">
@@ -66,7 +66,7 @@ export default function HeaderChrome() {
         <Link
           href="/"
           className="flex min-w-0 items-center gap-3"
-          aria-label="Aller à l’accueil"
+          aria-label="Retour à l’accueil Allo Moto"
         >
           <BrandMark size="lg" priority className="h-12 w-12" />
           <span className="flex min-w-0 flex-col">
@@ -74,7 +74,7 @@ export default function HeaderChrome() {
               Allo Moto
             </span>
             <span className="truncate text-[1.22rem] leading-[1.1] font-semibold tracking-[-0.025em] text-foreground">
-              Location de moto premium
+              Location moto à Orléans
             </span>
           </span>
         </Link>

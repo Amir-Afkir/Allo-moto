@@ -6,8 +6,9 @@ import { getPublicCatalogPageData } from "@/app/_features/ops/data/ops-store";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Catalogue motos | Allo Moto",
-  description: "Comparez les motos premium à Orléans par permis, prix, dépôt et transmission.",
+  title: "Motos à Orléans | Allo Moto",
+  description:
+    "Comparez les motos à Orléans par créneau, permis et budget avant de réserver.",
 };
 
 export default async function MotosPage() {

@@ -321,9 +321,7 @@ export function ReservationTunnel({
     selectedMotorcycle,
     viewStage,
   ]);
-  const shouldShowMobileDock =
-    Boolean(selectedMotorcycle) &&
-    (viewStage === "selection" || viewStage === "client");
+  const shouldShowMobileDock = Boolean(selectedMotorcycle) && viewStage === "client";
 
   useEffect(() => {
     const storedDraft = loadReservationClientDraft();
@@ -714,8 +712,8 @@ export function ReservationTunnel({
         </div>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-8">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-6 md:space-y-8">
           <section className="space-y-4 border-b border-border/60 pb-6 md:space-y-6 md:pb-8">
             <div className="md:hidden">
               <Link
@@ -935,15 +933,13 @@ export function ReservationTunnel({
                 >
                   Vérifier la disponibilité
                 </Button>
-                <Button
-                  as="link"
+                <Link
                   href="/motos"
-                  ariaLabel="Revenir au catalogue de motos"
-                  variant="outline"
-                  size="lg"
+                  aria-label="Revenir au catalogue de motos"
+                  className="inline-flex min-h-11 items-center justify-center text-sm font-semibold text-brand transition-colors hover:text-brand-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:justify-start"
                 >
                   Revenir au catalogue
-                </Button>
+                </Link>
               </div>
             </div>
           ) : null}
@@ -1792,7 +1788,7 @@ function getReservationSurfaceContext({
         ? "Votre réservation est confirmée."
         : "Votre demande a bien été envoyée."
       : viewStage === "payment"
-        ? "Vérifiez avant d'envoyer."
+        ? "Vérifiez avant l'envoi."
       : viewStage === "client"
           ? "Renseignez votre dossier."
           : "Vérifiez votre créneau.";
@@ -1803,10 +1799,10 @@ function getReservationSurfaceContext({
         ? "Conservez la référence. Le paiement se fera au retrait."
         : "Nous reviendrons vers vous pour confirmer la réservation et le retrait."
       : viewStage === "payment"
-        ? "Contrôlez les informations utiles avant l'envoi. Le paiement se fera au retrait."
+        ? "Relisez l'essentiel avant validation. Le paiement se fera au retrait."
       : viewStage === "client"
-        ? "Vos coordonnées et votre permis suffisent pour envoyer la demande."
-        : "Choisissez la moto, vos dates et le retrait.";
+        ? "Coordonnées et permis suffisent pour continuer."
+        : "Choisissez la moto et le créneau.";
 
   const statusTone =
     viewStage === "confirmed"
@@ -2229,21 +2225,21 @@ function getMobileReservationHeaderCopy({
 
   if (viewStage === "payment") {
     return {
-      title: "Vérifiez avant d'envoyer.",
-      description: "Contrôlez les informations utiles avant la validation.",
+      title: "Vérifiez avant l'envoi.",
+      description: "Relisez l'essentiel avant validation.",
     };
   }
 
   if (viewStage === "client") {
     return {
       title: "Finalisez votre réservation.",
-      description: "Complétez le dossier, puis validez l'envoi.",
+      description: "Complétez le dossier, puis continuez.",
     };
   }
 
   return {
     title: "Finalisez votre réservation.",
-    description: "Choisissez le créneau, complétez le dossier, puis validez.",
+    description: "Choisissez la moto et le créneau, puis continuez.",
   };
 }
 

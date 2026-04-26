@@ -14,7 +14,7 @@ export default async function MotoSupport() {
     <Section
       id="help"
       title="Besoin d’aide avant de réserver ?"
-      subtitle="Un message suffit pour vérifier le permis, le dépôt ou le retrait avant de passer au paiement."
+      subtitle="Un message suffit pour vérifier le permis, le dépôt ou le retrait avant le paiement."
       className="section-deferred"
     >
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">

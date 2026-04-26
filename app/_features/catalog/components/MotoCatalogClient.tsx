@@ -181,6 +181,11 @@ export function MotoCatalogClient({
   }
 
   function selectMotorcycle(slug: string) {
+    if (selectedId === slug && hasMobileSelection) {
+      setHasMobileSelection(false);
+      return;
+    }
+
     setSelectedId(slug);
     setHasMobileSelection(true);
   }
@@ -404,6 +409,11 @@ function MotoRow({
     },
     { label: "Km inclus", value: `${motorcycle.includedMileageKmPerDay} km/jour` },
   ];
+  const mobileSupportCopy = evaluation.available
+    ? motorcycle.editorialNote
+    : evaluation.nextAvailableLabel ??
+      evaluation.blockers[0] ??
+      "Créneau à vérifier.";
 
   return (
     <article
@@ -424,33 +434,24 @@ function MotoRow({
 
         <div className="space-y-3">
           <div className="space-y-2">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <Badge variant="outline" size="sm">
-                  {motorcycle.brand}
+            <div className="hidden items-center gap-2 xl:flex">
+              <Badge variant="outline" size="sm">
+                {motorcycle.brand}
+              </Badge>
+              <Badge variant={evaluation.statusTone} size="sm">
+                {evaluation.statusLabel}
+              </Badge>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 xl:hidden">
+              <p className="label">{motorcycle.brand}</p>
+              <Badge variant={evaluation.statusTone} size="sm">
+                {evaluation.statusLabel}
+              </Badge>
+              {mobileSelected ? (
+                <Badge variant="accent" size="sm">
+                  Retenue
                 </Badge>
-                <Badge variant={evaluation.statusTone} size="sm">
-                  {evaluation.statusLabel}
-                </Badge>
-              </div>
-              <button
-                type="button"
-                aria-pressed={mobileSelected}
-                aria-label={
-                  mobileSelected
-                    ? `${motorcycle.name} est retenue`
-                    : `Retenir ${motorcycle.name}`
-                }
-                onClick={() => onSelect(motorcycle.slug)}
-                className={cn(
-                  "inline-flex min-h-9 shrink-0 items-center rounded-pill border px-3 py-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/35 xl:hidden",
-                  mobileSelected
-                    ? "border-brand/25 bg-brand-soft text-brand-700"
-                    : "border-border/70 bg-surface-elevated text-foreground/72 hover:text-foreground",
-                )}
-              >
-                {mobileSelected ? "Retenue" : "Retenir"}
-              </button>
+              ) : null}
             </div>
 
             <Link
@@ -459,22 +460,32 @@ function MotoRow({
               aria-label={`Ouvrir la fiche de ${motorcycle.name}`}
               className="block heading-3 text-foreground transition-colors hover:text-brand-strong"
             >
-              {motorcycle.name}
+              <span className="xl:hidden">
+                {motorcycle.brand} {motorcycle.name}
+              </span>
+              <span className="hidden xl:inline">{motorcycle.name}</span>
             </Link>
             <p className="body-copy text-muted-foreground">
-              {motorcycle.editorialNote}
+              {mobileSupportCopy}
             </p>
-            <p className="text-sm text-foreground/72">
-              {evaluation.inventorySummary}
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-foreground/78 xl:hidden">
+              <span>
+                {MOTORCYCLE_LICENSE_LABELS[motorcycle.licenseCategory]}
+              </span>
+              <span aria-hidden className="text-muted-foreground/45">
+                ·
+              </span>
+              <span>
+                {MOTORCYCLE_TRANSMISSION_LABELS[motorcycle.transmission]}
+              </span>
+              <span aria-hidden className="text-muted-foreground/45">
+                ·
+              </span>
+              <span>{motorcycle.includedMileageKmPerDay} km/jour</span>
             </p>
-            {evaluation.nextAvailableLabel ? (
-              <p className="text-xs font-medium text-muted-foreground">
-                {evaluation.nextAvailableLabel}
-              </p>
-            ) : null}
           </div>
 
-          <dl className="grid grid-cols-3 gap-2 rounded-card border border-border/55 bg-background/52 p-3 xl:border-0 xl:bg-transparent xl:p-0 sm:gap-x-6 sm:gap-y-4">
+          <dl className="hidden grid-cols-3 gap-2 rounded-card border border-border/55 bg-background/52 p-3 sm:gap-x-6 sm:gap-y-4 xl:grid xl:border-0 xl:bg-transparent xl:p-0">
             {metrics.map((metric, index) => (
               <div
                 key={metric.label}
@@ -507,28 +518,45 @@ function MotoRow({
             </p>
           </div>
 
-          <div className="grid gap-2 min-[390px]:grid-cols-[minmax(0,1fr)_auto] xl:hidden">
+          <div className="space-y-2.5 xl:hidden">
             <Button
               as="link"
               href={reservationHref}
               ariaLabel={`Réserver ${motorcycle.brand} ${motorcycle.name}`}
               variant="accent"
               size="md"
-              className="min-h-11"
+              className="min-h-11 w-full"
             >
               Réserver
             </Button>
-            <Button
-              as="link"
-              href={`/motos/${motorcycle.slug}`}
-              prefetch
-              ariaLabel={`Voir la fiche de ${motorcycle.brand} ${motorcycle.name}`}
-              variant="outline"
-              size="md"
-              className="min-h-11"
-            >
-              Fiche
-            </Button>
+            <div className="flex items-center justify-between gap-3">
+              <Link
+                href={`/motos/${motorcycle.slug}`}
+                prefetch
+                aria-label={`Voir la fiche de ${motorcycle.brand} ${motorcycle.name}`}
+                className="inline-flex min-h-10 items-center rounded-control px-1 text-sm font-semibold text-brand transition-colors hover:text-brand-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                Voir la fiche
+              </Link>
+              <button
+                type="button"
+                aria-pressed={mobileSelected}
+                aria-label={
+                  mobileSelected
+                    ? `${motorcycle.name} est retenue`
+                    : `Retenir ${motorcycle.name}`
+                }
+                onClick={() => onSelect(motorcycle.slug)}
+                className={cn(
+                  "inline-flex min-h-10 items-center rounded-control px-1 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  mobileSelected
+                    ? "text-brand-700"
+                    : "text-foreground/72 hover:text-foreground",
+                )}
+              >
+                {mobileSelected ? "Retenue" : "Retenir"}
+              </button>
+            </div>
           </div>
 
           <button
@@ -564,7 +592,7 @@ function MobileSelectedBar({
 }) {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 xl:hidden">
-      <div className="pointer-events-auto mx-auto max-w-2xl rounded-card border border-border/70 bg-surface/96 p-3 shadow-[0_14px_36px_rgba(23,20,16,0.14)] backdrop-blur-md">
+      <div className="pointer-events-auto mx-auto max-w-2xl rounded-card border border-border/70 bg-surface/96 p-3 shadow-[0_12px_28px_rgba(23,20,16,0.12)] backdrop-blur-md">
         <div className="grid gap-3 min-[390px]:grid-cols-[minmax(0,1fr)_auto] min-[390px]:items-center">
           <div className="min-w-0">
             <p className="meta-label text-[0.62rem] tracking-[0.14em]">
@@ -578,28 +606,25 @@ function MobileSelectedBar({
               /jour
             </p>
           </div>
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+          <div className="flex min-[390px]:flex-col min-[390px]:items-end min-[390px]:gap-2">
             <Button
               as="link"
               href={reservationHref}
               ariaLabel={`Réserver ${motorcycle.brand} ${motorcycle.name}`}
               variant="accent"
               size="md"
-              className="min-h-11"
+              className="min-h-11 min-[390px]:w-full"
             >
               Réserver
             </Button>
-            <Button
-              as="link"
+            <Link
               href={`/motos/${motorcycle.slug}`}
               prefetch
-              ariaLabel={`Voir la fiche de ${motorcycle.brand} ${motorcycle.name}`}
-              variant="outline"
-              size="md"
-              className="min-h-11 px-3"
+              aria-label={`Voir la fiche de ${motorcycle.brand} ${motorcycle.name}`}
+              className="inline-flex min-h-10 items-center rounded-control px-1 text-sm font-semibold text-brand transition-colors hover:text-brand-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              Fiche
-            </Button>
+              Voir la fiche
+            </Link>
           </div>
         </div>
       </div>

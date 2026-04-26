@@ -5,7 +5,7 @@ export function MotoCatalogHero() {
         <h1 className="heading-1 text-foreground text-balance">
           <span className="block sm:hidden">Choisissez la bonne moto.</span>
           <span className="hidden sm:block">
-            Définissez votre créneau. Comparez les motos vraiment disponibles.
+            Choisissez la bonne moto pour votre créneau.
           </span>
         </h1>
         <p className="body-copy font-medium text-foreground/82">

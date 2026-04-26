@@ -76,9 +76,9 @@ export function MotoAvailabilityPanel({
     <div className="section-band panel-space space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
-          <p className="label">Choisissez votre creneau</p>
+          <p className="label">Créneau</p>
           <h3 className="heading-3 text-foreground">
-            Choisissez vos dates pour cette moto.
+            Vérifiez vos dates pour cette moto.
           </h3>
           <p className="text-sm text-muted-foreground">
             Dates et retrait restent modifiables avant le dossier.
@@ -88,7 +88,7 @@ export function MotoAvailabilityPanel({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <Field label="Depart" htmlFor={`planning-pickup-${motorcycle.slug}`}>
+        <Field label="Départ" htmlFor={`planning-pickup-${motorcycle.slug}`}>
           <Input
             id={`planning-pickup-${motorcycle.slug}`}
             type="date"
@@ -149,17 +149,17 @@ export function MotoAvailabilityPanel({
           size="lg"
         >
           {evaluation.available
-            ? "Continuer avec ce créneau"
+            ? "Continuer"
             : "Essayer un autre créneau"}
         </Button>
         <Button
           as="link"
           href="/motos"
-          ariaLabel="Retourner au catalogue"
+          ariaLabel="Voir les motos"
           variant="outline"
           size="lg"
         >
-          Retour au catalogue
+          Voir les motos
         </Button>
       </div>
     </div>

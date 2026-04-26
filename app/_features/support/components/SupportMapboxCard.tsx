@@ -102,7 +102,7 @@ export default function SupportMapboxCard({
                 ))}
               </div>
             ) : (
-              <p className="mt-2 body-copy text-white/72">Ajoutez l’adresse publique pour activer la localisation.</p>
+              <p className="mt-2 body-copy text-white/72">L’adresse est confirmée avant le retrait.</p>
             )}
           </div>
         </div>

@@ -14,7 +14,7 @@ const steps = [
   {
     no: "03",
     title: "Finaliser le dossier",
-    copy: "Le dossier s’ouvre après le choix, puis le paiement vient en dernier.",
+    copy: "Le dossier s’ouvre après le choix, puis l’envoi vient en dernier.",
   },
 ] as const;
 
@@ -43,7 +43,7 @@ export default function MotoProcess() {
               Réserver sans détour.
             </h2>
             <p className="mt-4 max-w-[28rem] body-copy text-muted-foreground">
-              Créneau, moto, dossier, paiement. Chaque étape arrive au bon moment.
+              Créneau, moto, dossier, envoi. Chaque étape arrive au bon moment.
             </p>
           </div>
 

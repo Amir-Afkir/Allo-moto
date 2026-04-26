@@ -29,7 +29,7 @@ export default function MotoFaq() {
     <Section
       id="faq"
       title="Questions fréquentes."
-      subtitle="Les réponses courtes avant de passer au support."
+      subtitle="Les réponses courtes avant de demander de l’aide."
       density="compact"
       className="section-deferred"
     >

@@ -48,13 +48,13 @@ export async function generateMetadata({ params }: MotoDetailPageProps): Promise
   if (!motorcycle) {
     return {
       title: "Moto introuvable | Allo Moto",
-      description: "Le modèle demandé n’existe pas dans le catalogue.",
+      description: "Le modèle demandé n’existe plus dans le catalogue Allo Moto.",
     };
   }
 
   return {
-    title: `${motorcycle.brand} ${motorcycle.name} | Allo Moto`,
-    description: motorcycle.description,
+    title: `${motorcycle.brand} ${motorcycle.name} à Orléans | Allo Moto`,
+    description: `${motorcycle.description} Vérifiez le créneau, le permis et le retrait avant d’ouvrir le dossier.`,
   };
 }
 
@@ -119,14 +119,14 @@ export default async function MotoDetailPage({ params }: MotoDetailPageProps) {
                 href={`${buildReservationHref(motorcycle.slug, {
                   stage: "selection",
                 })}#reservation-form`}
-                ariaLabel={`Vérifier les dates pour ${motorcycle.brand} ${motorcycle.name}`}
+                ariaLabel={`Vérifier le créneau pour ${motorcycle.brand} ${motorcycle.name}`}
                 variant="accent"
                 size="lg"
               >
-                Vérifier mes dates
+                Vérifier le créneau
               </Button>
-              <Button as="link" href="/motos" ariaLabel="Retourner au catalogue" variant="outline" size="lg">
-                Retour au catalogue
+              <Button as="link" href="/motos" ariaLabel="Voir les motos" variant="outline" size="lg">
+                Voir les motos
               </Button>
             </div>
           </div>
@@ -161,8 +161,8 @@ export default async function MotoDetailPage({ params }: MotoDetailPageProps) {
       </section>
 
       <Section
-        title="Verifier le creneau"
-        subtitle="La disponibilite ci-dessous tient compte du planning, des buffers et de la capacite de retrait."
+        title="Vérifier le créneau"
+        subtitle="Le planning, les buffers et le retrait sont déjà pris en compte."
       >
         <MotoAvailabilityPanel
           motorcycle={motorcycle}

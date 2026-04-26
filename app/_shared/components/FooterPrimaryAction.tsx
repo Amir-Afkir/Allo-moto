@@ -49,9 +49,9 @@ function getFooterAction(pathname: string, searchParams: ReturnType<typeof useSe
   if (detailSlug) {
     return {
       primary: {
-        label: "Vérifier ce modèle",
+        label: "Vérifier le créneau",
         href: `${buildReservationHref(detailSlug, { stage: "selection" })}#reservation-form`,
-        ariaLabel: "Vérifier les dates pour cette moto",
+        ariaLabel: "Vérifier le créneau pour cette moto",
       },
     };
   }
@@ -59,7 +59,7 @@ function getFooterAction(pathname: string, searchParams: ReturnType<typeof useSe
   if (pathname === "/motos") {
     return {
       primary: {
-        label: "Commencer",
+        label: "Réserver",
         href: "/reserver?stage=selection#reservation-form",
         ariaLabel: "Commencer la réservation",
       },
@@ -70,9 +70,9 @@ function getFooterAction(pathname: string, searchParams: ReturnType<typeof useSe
     if (reservationStage === "selection") {
       return {
         primary: {
-          label: "Reprendre le choix",
+          label: "Reprendre la réservation",
           href: buildReservationStageHref(searchParams, "selection", "reservation-form"),
-          ariaLabel: "Reprendre le choix du créneau et de la moto",
+          ariaLabel: "Reprendre la réservation",
         },
       };
     }
@@ -80,9 +80,9 @@ function getFooterAction(pathname: string, searchParams: ReturnType<typeof useSe
     if (reservationStage === "confirmed") {
       return {
         primary: {
-          label: "Relire le suivi",
+          label: "Voir le suivi",
           href: buildReservationStageHref(searchParams, "confirmed", "confirmation"),
-          ariaLabel: "Relire le suivi de réservation",
+          ariaLabel: "Voir le suivi de réservation",
         },
       };
     }
@@ -119,9 +119,9 @@ function getFooterAction(pathname: string, searchParams: ReturnType<typeof useSe
 
     return {
       primary: {
-        label: "Reprendre le choix",
+        label: "Reprendre la réservation",
         href: buildReservationStageHref(searchParams, "selection", "reservation-form"),
-        ariaLabel: "Reprendre le choix du créneau et de la moto",
+        ariaLabel: "Reprendre la réservation",
       },
     };
   }

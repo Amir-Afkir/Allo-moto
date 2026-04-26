@@ -17,9 +17,9 @@ type ReservationPageProps = {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Réservation premium | Allo Moto",
+  title: "Réserver une moto à Orléans | Allo Moto",
   description:
-    "Vérifiez le créneau, renseignez le dossier, puis envoyez votre demande de réservation.",
+    "Réservation moto à Orléans. Choisissez le créneau, complétez le dossier, puis envoyez votre demande.",
 };
 
 export default async function ReservationPage({

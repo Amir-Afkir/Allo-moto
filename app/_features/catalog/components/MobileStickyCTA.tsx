@@ -31,16 +31,16 @@ export default function MobileStickyCTA({
               <p className="meta-label">Allo Moto</p>
               <p className="mt-2 text-sm font-semibold text-foreground">
                 {motorcycleLabel
-                  ? `${motorcycleLabel} prête à vérifier`
-                  : "Définissez votre créneau"}
+                  ? `${motorcycleLabel} à vérifier`
+                  : "Choisissez le créneau"}
               </p>
             </div>
           </div>
           <Link
-            href={CATALOG_AVAILABILITY_HREF}
+            href="/motos"
             className="text-xs font-semibold text-brand transition-colors hover:text-brand-strong"
           >
-            Disponibilités
+            Voir les motos
           </Link>
         </div>
 
@@ -52,20 +52,20 @@ export default function MobileStickyCTA({
             size="md"
             className="w-full"
           >
-            Disponibilités
+            Voir les disponibilités
           </ButtonLink>
           <ButtonLink
             href={reservationHref}
             ariaLabel={
               motorcycleLabel
-                ? `Vérifier les dates pour ${motorcycleLabel}`
-                : "Définir le créneau de réservation"
+                ? `Vérifier le créneau pour ${motorcycleLabel}`
+                : "Choisir le créneau de réservation"
             }
             variant="accent"
             size="md"
             className="w-full"
           >
-            {motorcycleLabel ? "Vérifier mes dates" : "Commencer"}
+            {motorcycleLabel ? "Vérifier le créneau" : "Réserver"}
           </ButtonLink>
         </div>
       </div>

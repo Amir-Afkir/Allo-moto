@@ -134,7 +134,7 @@ export function getPrimaryCta(): PrimaryCta {
   return {
     label: "Réserver",
     href: CATALOG_HREF,
-    ariaLabel: "Aller à la page motos",
+    ariaLabel: "Voir les motos et réserver",
     variant: "accent",
   };
 }
