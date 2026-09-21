@@ -27,7 +27,7 @@ test("step links and browser back preserve the in-memory dossier and synchronize
   const errors: string[] = []; page.on("pageerror", (error) => errors.push(error.message));
   await dossier(page, "2096");
   await expect(page).toHaveURL(/stage=payment/);
-  await page.getByRole("link", { name: "Retourner au dossier client", exact: true }).click();
+  await page.locator("#send-form").getByRole("link", { name: "Retourner au dossier client", exact: true }).click();
   await expect(page.locator("#client-form")).toBeVisible();
   await expect(page.locator("#client-first-name")).toHaveValue("Reliability");
   await expect(page.locator("#client-consent")).toBeChecked();
