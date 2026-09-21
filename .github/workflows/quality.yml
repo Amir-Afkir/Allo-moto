@@ -1,0 +1,41 @@
+name: Quality
+
+on:
+  push:
+    branches: [main, chatgpt/security-data-pass-1]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Export tracked source for review
+        run: git archive --format=zip --output=/tmp/source.zip HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: security-pass-source
+          path: /tmp/source.zip
+          retention-days: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test --if-present
+      - run: npm run build
+      - run: npm run typecheck
