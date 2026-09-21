@@ -55,6 +55,8 @@ type VehicleRow = {
 type ReservationRow = {
   id: string;
   reference: string;
+  idempotency_key_hash: string | null;
+  request_hash: string | null;
   vehicle_slug: string;
   customer_first_name: string;
   customer_last_name: string;
@@ -266,6 +268,11 @@ async function createSchema(sql: OpsDbExecutor) {
     )
   `;
 
+  await sql`alter table ops_reservations add column if not exists idempotency_key_hash text`;
+  await sql`alter table ops_reservations add column if not exists request_hash text`;
+  await sql`create unique index if not exists ops_reservations_idempotency_idx
+    on ops_reservations (idempotency_key_hash) where idempotency_key_hash is not null`;
+
   await sql`
     create table if not exists ops_vehicle_blocks (
       id text primary key,
@@ -415,6 +422,8 @@ async function replaceSnapshot(sql: OpsDbExecutor, store: OpsStoreSnapshot) {
       insert into ops_reservations (
         id,
         reference,
+        idempotency_key_hash,
+        request_hash,
         vehicle_slug,
         customer_first_name,
         customer_last_name,
@@ -448,6 +457,8 @@ async function replaceSnapshot(sql: OpsDbExecutor, store: OpsStoreSnapshot) {
       values (
         ${reservation.id},
         ${reservation.reference},
+        ${reservation.idempotencyKeyHash ?? null},
+        ${reservation.requestHash ?? null},
         ${reservation.vehicleSlug},
         ${reservation.customerFirstName},
         ${reservation.customerLastName},
@@ -555,6 +566,8 @@ function mapReservationRow(row: ReservationRow): OpsReservationRecord {
   return {
     id: row.id,
     reference: row.reference,
+    idempotencyKeyHash: row.idempotency_key_hash,
+    requestHash: row.request_hash,
     vehicleSlug: row.vehicle_slug,
     customerFirstName: row.customer_first_name,
     customerLastName: row.customer_last_name,

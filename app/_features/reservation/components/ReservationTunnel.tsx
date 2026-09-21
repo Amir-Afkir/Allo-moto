@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { reservationSubmissionKey } from "../data/reservation-submission";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { MotoRetenueSidebar } from "@/app/_features/catalog/components/MotoRetenueSidebar";
@@ -141,6 +142,7 @@ export function ReservationTunnel({
     blocks: initialPlanningBlocks,
   });
   const planningReturnFocusRef = useRef<HTMLElement | null>(null);
+  const submissionInFlight = useRef(false);
 
   const selectedMotorcycle = useMemo(
     () =>
@@ -519,24 +521,25 @@ export function ReservationTunnel({
       !selectedMotorcycle ||
       !evaluation.available ||
       !clientValidation.readyForReview ||
-      isSubmittingReservation
+      isSubmittingReservation || submissionInFlight.current
     ) {
       return;
     }
 
+    submissionInFlight.current = true;
     setIsSubmittingReservation(true);
     setSubmitError(null);
 
     try {
+      const requestBody = { draft, clientDraft };
+      const idempotencyKey = await reservationSubmissionKey(requestBody);
       const response = await fetch("/api/reservations", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
         },
-        body: JSON.stringify({
-          draft,
-          clientDraft,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const payload = (await response.json().catch(() => null)) as
@@ -583,6 +586,7 @@ export function ReservationTunnel({
         "La demande n'a pas pu être envoyée. Réessayez dans un instant.",
       );
     } finally {
+      submissionInFlight.current = false;
       setIsSubmittingReservation(false);
     }
   }

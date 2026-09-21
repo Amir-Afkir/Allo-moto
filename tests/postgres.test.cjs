@@ -28,6 +28,31 @@ test('PostgreSQL: concurrent confirmations serialize and cancellation keeps pers
     const saved = await store.getAdminReservationById(winner.id);
     assert.equal(saved.reservation.status, 'cancelled'); assert.equal(saved.linkedBlocks.length, 0);
     assert.equal((await store.listAdminReservations()).length, 2);
+    // Two independent Node processes/pools retry one logical submission.
+    const { randomUUID } = require('node:crypto');
+    const { execFile } = require('node:child_process');
+    const run = require('node:util').promisify(execFile);
+    const repeated = { ...input, idempotencyKey: randomUUID() };
+    const script = `
+      const {createLoader}=require(${JSON.stringify(require.resolve('./load-ts.cjs'))});
+      const loader=createLoader({postgres:(url,opts)=>require('postgres')(url,{...opts,onnotice:()=>{}})});
+      const store=loader.load('app/_features/ops/data/ops-store.ts');
+      (async()=>{try {
+        const result=await store.createReservationRequest(${JSON.stringify(repeated)});
+        console.log('REPLAY_ID:'+result.reservation.id);
+      }finally{await global.__alloMotoOpsSql?.end({timeout:5});}})().catch(e=>{console.error(e);process.exitCode=1});
+    `;
+    const results = await Promise.all([0,1].map(() => run(process.execPath,['-e',script], {cwd:temp,env:{...process.env,NODE_PATH:path.join(require('./load-ts.cjs').root,'node_modules')},timeout:20000})));
+    const ids = results.map(({stdout}) => stdout.trim().split('REPLAY_ID:').pop());
+    assert.equal(ids[0],ids[1]);
+    const replay = await store.createReservationRequest(repeated);
+    assert.equal(replay.reservation.id, ids[0]);
+    assert.equal((await store.listAdminReservations()).length,3);
+    await assert.rejects(store.createReservationRequest({...repeated,clientDraft:{...input.clientDraft,firstName:'Different'}}), (e)=>e.status===409);
+    const row = await global.__alloMotoOpsSql`select idempotency_key_hash, request_hash from ops_reservations where id = ${ids[0]}`;
+    assert.equal(row[0].idempotency_key_hash.length,64);
+    assert.equal(row[0].request_hash.length,64);
+
   } finally {
     await global.__alloMotoOpsSql?.end({ timeout: 5 });
     delete global.__alloMotoOpsSql; delete global.__alloMotoOpsDbReady;

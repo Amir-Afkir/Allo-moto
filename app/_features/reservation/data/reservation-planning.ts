@@ -1,3 +1,4 @@
+import { buildRentalWindow, rentalDateKey, rentalDurationDays, scheduleError, RENTAL_TIME_ZONE, type RentalWindow } from "./rental-time";
 import type { CatalogMotorcycle } from "@/app/_features/catalog/data/motorcycles";
 import type { ReservationDraft, ReservationPickupMode } from "./reservation";
 
@@ -118,10 +119,6 @@ export type ReservationAvailability = {
 
 const DEFAULT_BUFFER_BEFORE_MINUTES = 60;
 const DEFAULT_BUFFER_AFTER_MINUTES = 90;
-const DEFAULT_PICKUP_HOUR = 10;
-const DEFAULT_RETURN_HOUR = 18;
-const DELIVERY_PICKUP_HOUR = 9;
-const DELIVERY_RETURN_HOUR = 19;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 const OPERATIONAL_CAPACITY = {
@@ -200,6 +197,7 @@ export function evaluatePlanningAvailability({
   blocks = [],
   ignoreReservationId,
   now = new Date(),
+  storedWindow,
 }: {
   motorcycle: CatalogMotorcycle | null;
   draft: ReservationDraft;
@@ -207,8 +205,9 @@ export function evaluatePlanningAvailability({
   blocks?: ReadonlyArray<PlanningAvailabilityBlock>;
   ignoreReservationId?: string | null;
   now?: Date;
+  storedWindow?: RentalWindow;
 }): ReservationAvailability {
-  const durationDays = calculateDurationDays(draft.pickupDate, draft.returnDate);
+  const durationDays = rentalDurationDays(draft.pickupDate, draft.returnDate);
   const blockers: string[] = [];
   const pickupLabel =
     draft.pickupMode === "delivery" ? "Livraison organisee" : "Retrait sur place";
@@ -235,11 +234,15 @@ export function evaluatePlanningAvailability({
   } else if (fleetStatus === "inactive") {
     blockers.push("La moto n'est pas ouverte a la reservation.");
   } else if (fleetStatus === "blocked") {
-    blockers.push("La moto est deja reservee et ne peut pas etre reprise.");
+    blockers.push("La moto n’est pas ouverte à la réservation tant que son retour n’est pas enregistré.");
   }
 
-  if (durationDays <= 0) {
-    blockers.push("La periode doit etre valide.");
+  const dateError = scheduleError(draft, now, storedWindow);
+  if (dateError) {
+    return buildAvailabilityResult({
+      available: false, state: "conflict", fleetStatus, blockers: [...blockers, dateError],
+      pickupLabel, durationDays, activeBlocks: [], operationalUsage: buildEmptyOperationalUsage(), nextAvailableAt: null,
+    });
   }
 
   const activeBlocks = buildActivePlanningBlocks({
@@ -249,6 +252,7 @@ export function evaluatePlanningAvailability({
     draft,
     ignoreReservationId,
     now,
+    storedWindow,
   });
 
   if (activeBlocks.length > 0) {
@@ -389,6 +393,7 @@ function buildActivePlanningBlocks({
   draft,
   ignoreReservationId,
   now,
+  storedWindow,
 }: {
   motorcycle: CatalogMotorcycle;
   reservations: ReadonlyArray<PlanningReservationRecord>;
@@ -396,8 +401,9 @@ function buildActivePlanningBlocks({
   draft: ReservationDraft;
   ignoreReservationId?: string | null;
   now: Date;
+  storedWindow?: RentalWindow;
 }) {
-  const window = getBufferedReservationWindow(draft, motorcycle);
+  const window = getBufferedReservationWindow(draft, motorcycle, storedWindow);
 
   return buildPlanningBlocks({
     motorcycle,
@@ -429,48 +435,6 @@ function buildPlanningBlocks({
 }) {
   const blocks: PlanningAvailabilityBlock[] = [];
   const inventory = getPlanningInventory(reservations, now);
-
-  if (motorcycle.status === "maintenance") {
-    blocks.push({
-      id: `${motorcycle.slug}-maintenance`,
-      motorcycleSlug: motorcycle.slug,
-      type: "maintenance",
-      reservationId: null,
-      startAt: new Date(now.getTime() - 30 * DAY_IN_MS).toISOString(),
-      endAt: new Date(now.getTime() + 30 * DAY_IN_MS).toISOString(),
-      label: "Maintenance flotte",
-      reason: "Moto en maintenance.",
-      tone: "danger",
-    });
-  }
-
-  if (motorcycle.status === "reserved") {
-    blocks.push({
-      id: `${motorcycle.slug}-reserved`,
-      motorcycleSlug: motorcycle.slug,
-      type: "manual_block",
-      reservationId: null,
-      startAt: new Date(now.getTime() - 30 * DAY_IN_MS).toISOString(),
-      endAt: new Date(now.getTime() + 30 * DAY_IN_MS).toISOString(),
-      label: "Reservee hors ligne",
-      reason: "Moto reservee et non ouvrable sur ce creneau.",
-      tone: "warning",
-    });
-  }
-
-  if (motorcycle.status === "inactive" || motorcycle.status === "draft") {
-    blocks.push({
-      id: `${motorcycle.slug}-inactive`,
-      motorcycleSlug: motorcycle.slug,
-      type: "manual_block",
-      reservationId: null,
-      startAt: new Date(now.getTime() - 30 * DAY_IN_MS).toISOString(),
-      endAt: new Date(now.getTime() + 30 * DAY_IN_MS).toISOString(),
-      label: "Hors publication",
-      reason: "Moto non ouverte a la reservation.",
-      tone: "outline",
-    });
-  }
 
   inventory
     .filter((reservation) => reservation.motorcycleSlug === motorcycle.slug)
@@ -507,7 +471,7 @@ function buildPlanningBlocks({
 
   externalBlocks
     .filter((block) => block.motorcycleSlug === motorcycle.slug)
-    .filter((block) => block.reservationId !== ignoreReservationId)
+    .filter((block) => !ignoreReservationId || block.reservationId !== ignoreReservationId)
     .forEach((block) => {
       blocks.push(block);
     });
@@ -603,6 +567,7 @@ function keepPlanningReservationHistory(
 }
 
 function getFleetStatus(motorcycle: CatalogMotorcycle): FleetLifecycleStatus {
+  if (motorcycle.bookingStatus) return motorcycle.bookingStatus;
   if (motorcycle.status === "maintenance") {
     return "maintenance";
   }
@@ -618,7 +583,7 @@ function getFleetStatus(motorcycle: CatalogMotorcycle): FleetLifecycleStatus {
   return "active";
 }
 
-function getBufferedRecordWindow(
+export function getBufferedRecordWindow(
   reservation: PlanningReservationRecord,
   motorcycle: CatalogMotorcycle,
 ) {
@@ -635,9 +600,10 @@ function getBufferedRecordWindow(
 function getBufferedReservationWindow(
   draft: ReservationDraft,
   motorcycle: CatalogMotorcycle,
+  storedWindow?: RentalWindow,
 ) {
   const buffers = getBufferPolicy(motorcycle);
-  const window = getReservationWindow(draft);
+  const window = storedWindow ?? buildRentalWindow(draft);
   const pickupAt = new Date(window.pickupAt).getTime();
   const returnAt = new Date(window.returnAt).getTime();
 
@@ -649,18 +615,6 @@ function getBufferedReservationWindow(
     bufferedEndAt: new Date(
       returnAt + buffers.afterMinutes * 60 * 1000,
     ).toISOString(),
-  };
-}
-
-function getReservationWindow(draft: ReservationDraft) {
-  const pickupHour =
-    draft.pickupMode === "delivery" ? DELIVERY_PICKUP_HOUR : DEFAULT_PICKUP_HOUR;
-  const returnHour =
-    draft.pickupMode === "delivery" ? DELIVERY_RETURN_HOUR : DEFAULT_RETURN_HOUR;
-
-  return {
-    pickupAt: createIsoFromDate(draft.pickupDate, pickupHour),
-    returnAt: createIsoFromDate(draft.returnDate, returnHour),
   };
 }
 
@@ -711,28 +665,6 @@ function isReservationBlockingOperations(
   return isReservationBlockingInventory(reservation, now);
 }
 
-function calculateDurationDays(pickupDate: string, returnDate: string) {
-  if (!pickupDate || !returnDate) {
-    return 0;
-  }
-
-  const pickupAt = createIsoFromDate(pickupDate, 0);
-  const returnAt = createIsoFromDate(returnDate, 0);
-  const diff =
-    (new Date(returnAt).getTime() - new Date(pickupAt).getTime()) / DAY_IN_MS;
-
-  return diff >= 0 ? Math.round(diff) + 1 : 0;
-}
-
-function createIsoFromDate(value: string, hour: number) {
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) {
-    return new Date().toISOString();
-  }
-
-  return new Date(Date.UTC(year, month - 1, day, hour, 0, 0)).toISOString();
-}
-
 function rangesOverlap(
   startAt: string,
   endAt: string,
@@ -757,7 +689,7 @@ function rangesOverlap(
 }
 
 function toDateKey(value: string) {
-  return value.slice(0, 10);
+  return rentalDateKey(new Date(value));
 }
 
 function formatDateTimeLabel(value: string) {
@@ -767,6 +699,7 @@ function formatDateTimeLabel(value: string) {
   }
 
   return new Intl.DateTimeFormat("fr-FR", {
+    timeZone: RENTAL_TIME_ZONE,
     day: "numeric",
     month: "short",
     hour: "2-digit",

@@ -53,6 +53,9 @@ export type OpsVehicleRecord = {
 export type OpsReservationRecord = {
   id: string;
   reference: string;
+  /** Private replay metadata; never projected to public planning or receipts. */
+  idempotencyKeyHash?: string | null;
+  requestHash?: string | null;
   vehicleSlug: string;
   customerFirstName: string;
   customerLastName: string;

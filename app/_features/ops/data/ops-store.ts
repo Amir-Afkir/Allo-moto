@@ -1,10 +1,12 @@
 import "server-only";
 
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
+import { randomUUID, createHash } from "node:crypto";
+import { buildRentalWindow, rentalDateKey, rentalDurationDays, rentalHourToIso } from "@/app/_features/reservation/data/rental-time";
 import { revalidateTag, unstable_cache } from "next/cache";
 import { toPublicPlanningReservation, toPublicPlanningBlock } from "./public-planning";
-import { parseReservationRequest, ReservationInputError } from "@/app/_features/reservation/data/reservation-request";
+import { parseReservationRequest, ReservationInputError, RequestBodyError, parseIdempotencyKey } from "@/app/_features/reservation/data/reservation-request";
 import {
   MOTORCYCLE_CATALOG,
   MOTORCYCLE_CATEGORY_LABELS,
@@ -26,6 +28,7 @@ import {
   type ReservationDraft,
 } from "@/app/_features/reservation/data/reservation";
 import {
+  getBufferedRecordWindow,
   type PlanningAvailabilityBlock,
   type PlanningReservationRecord,
 } from "@/app/_features/reservation/data/reservation-planning";
@@ -61,9 +64,8 @@ export type {
 const LOCAL_STORE_PATH = path.join(process.cwd(), "data", "ops-store.json");
 const DEFAULT_PICKUP_HOUR = 10;
 const DEFAULT_RETURN_HOUR = 18;
-const DELIVERY_PICKUP_HOUR = 9;
-const DELIVERY_RETURN_HOUR = 19;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+let localMutationQueue: Promise<unknown> = Promise.resolve();
 const PUBLIC_HOME_REVALIDATE_SECONDS = 300;
 const PUBLIC_CATALOG_REVALIDATE_SECONDS = 60;
 
@@ -117,7 +119,7 @@ export type OpsReservationFocus = "pickup-today" | "return-today";
 
 const getCachedPublicCatalog = unstable_cache(
   async () => getPublicCatalogUncached(new Date()),
-  ["public-catalog"],
+  ["public-catalog-reservation-v3"],
   {
     revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
     tags: ["public-catalog"],
@@ -126,7 +128,7 @@ const getCachedPublicCatalog = unstable_cache(
 
 const getCachedPublicMotorcycleBySlug = unstable_cache(
   async (slug: string) => getPublicMotorcycleBySlugUncached(slug, new Date()),
-  ["public-motorcycle-by-slug"],
+  ["public-motorcycle-by-slug-reservation-v3"],
   {
     revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
     tags: ["public-catalog"],
@@ -135,7 +137,7 @@ const getCachedPublicMotorcycleBySlug = unstable_cache(
 
 const getCachedFeaturedPublicMotorcycles = unstable_cache(
   async (limit: number) => getFeaturedPublicMotorcyclesUncached(limit, new Date()),
-  ["featured-public-motorcycles"],
+  ["featured-public-motorcycles-reservation-v3"],
   {
     revalidate: PUBLIC_HOME_REVALIDATE_SECONDS,
     tags: ["public-catalog"],
@@ -144,7 +146,7 @@ const getCachedFeaturedPublicMotorcycles = unstable_cache(
 
 const getCachedPlanningContext = unstable_cache(
   async () => getPlanningContextUncached(new Date()),
-  ["public-planning-context-privacy-v2"],
+  ["public-planning-context-reservation-v3"],
   {
     revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
     tags: ["public-planning"],
@@ -153,7 +155,7 @@ const getCachedPlanningContext = unstable_cache(
 
 const getCachedPublicHomeData = unstable_cache(
   async () => getPublicHomeDataUncached(new Date()),
-  ["public-home-data"],
+  ["public-home-data-reservation-v3"],
   {
     revalidate: PUBLIC_HOME_REVALIDATE_SECONDS,
     tags: ["public-catalog", "public-home"],
@@ -162,7 +164,7 @@ const getCachedPublicHomeData = unstable_cache(
 
 const getCachedPublicCatalogPageData = unstable_cache(
   async () => getPublicCatalogPageDataUncached(new Date()),
-  ["public-catalog-page-data-privacy-v2"],
+  ["public-catalog-page-data-reservation-v3"],
   {
     revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
     tags: ["public-catalog", "public-planning"],
@@ -172,7 +174,7 @@ const getCachedPublicCatalogPageData = unstable_cache(
 const getCachedPublicMotorcycleDetailPageData = unstable_cache(
   async (slug: string) =>
     getPublicMotorcycleDetailPageDataUncached(slug, new Date()),
-  ["public-motorcycle-detail-page-data-privacy-v2"],
+  ["public-motorcycle-detail-page-data-reservation-v3"],
   {
     revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
     tags: ["public-catalog", "public-planning"],
@@ -530,9 +532,24 @@ export async function getAdminReservationById(id: string) {
 export async function createReservationRequest(input: {
   draft: ReservationDraft;
   clientDraft: ReservationClientDraft;
+  idempotencyKey?: string;
 }) {
+  const key = input.idempotencyKey === undefined ? undefined : parseIdempotencyKey(input.idempotencyKey);
   input = parseReservationRequest(input);
+  const keyHash = key ? createHash("sha256").update(key).digest("hex") : null;
+  const requestHash = key ? createHash("sha256").update(JSON.stringify(input)).digest("hex") : null;
   return updateStore(async (store) => {
+    // Check inside the same transaction/lock as the insert, before time/availability checks.
+    // A retry of a committed request must succeed even if the slot is no longer available.
+    if (keyHash) {
+      const existing = store.reservations.find((record) => record.idempotencyKeyHash === keyHash);
+      if (existing) {
+        if (existing.requestHash !== requestHash) {
+          throw new RequestBodyError("Cette tentative correspond à un autre formulaire. Actualisez la page.", 409);
+        }
+        return { reservation: existing, planningReservation: toPlanningReservationRecord(existing) };
+      }
+    }
     const vehicle = store.vehicles.find(
       (candidate) => candidate.slug === input.draft.motorcycleSlug,
     );
@@ -568,12 +585,14 @@ export async function createReservationRequest(input: {
     }
 
     const nowIso = new Date().toISOString();
-    const reservationId = `reservation-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-    const window = buildReservationWindow(input.draft);
+    const reservationId = `reservation-${randomUUID()}`;
+    const window = buildRentalWindow(input.draft);
     const totalDays = Math.max(calculateReservationDuration(input.draft.pickupDate, input.draft.returnDate), 1);
     const reservation: OpsReservationRecord = {
       id: reservationId,
-      reference: buildReservationReference(vehicle.slug),
+      reference: buildReservationReference(vehicle.slug, store.reservations),
+      idempotencyKeyHash: keyHash,
+      requestHash,
       vehicleSlug: vehicle.slug,
       customerFirstName: input.clientDraft.firstName.trim(),
       customerLastName: input.clientDraft.lastName.trim(),
@@ -671,6 +690,8 @@ export async function updateReservationStatus(input: {
         },
         planningReservations,
         planningBlocks,
+        // Existing instants are contractual data: do not reinterpret legacy requests.
+        storedWindow: { pickupAt: reservation.pickupAt, returnAt: reservation.returnAt },
       });
 
       if (!evaluation.available) {
@@ -973,8 +994,18 @@ export async function addVehicleBlock(input: {
       throw new Error("Moto introuvable.");
     }
 
-    const startAt = createIsoFromDate(input.startDate, DEFAULT_PICKUP_HOUR);
-    const endAt = createIsoFromDate(input.endDate, DEFAULT_RETURN_HOUR);
+    if (!["maintenance", "manual_block"].includes(input.type) || rentalDurationDays(input.startDate, input.endDate) <= 0) {
+      throw new Error("Blocage invalide : vérifiez le type et la période.");
+    }
+    const startAt = rentalHourToIso(input.startDate, DEFAULT_PICKUP_HOUR);
+    const endAt = rentalHourToIso(input.endDate, DEFAULT_RETURN_HOUR);
+    const motorcycle = buildCatalogMotorcycle(vehicle, store, new Date());
+    const conflicts = store.reservations.some((record) => {
+      if (record.vehicleSlug !== vehicle.slug || record.status !== "confirmed") return false;
+      const occupied = getBufferedRecordWindow(toPlanningReservationRecord(record), motorcycle);
+      return rangesOverlap(startAt, endAt, occupied.startAt, occupied.endAt) || Date.parse(record.returnAt) < Date.now();
+    });
+    if (conflicts) throw new Error("Une location confirmée ou non rendue empêche ce blocage.");
 
     store.vehicleBlocks.unshift({
       id: `block-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1013,6 +1044,10 @@ function buildCatalogMotorcycle(
     model: vehicle.model,
     category: vehicle.category,
     status,
+    bookingStatus: vehicle.opsStatus === "hidden" ? "inactive"
+      : vehicle.opsStatus === "maintenance" ? "maintenance"
+      : store.reservations.some((record) => record.vehicleSlug === vehicle.slug && record.status === "confirmed" && Date.parse(record.returnAt) < now.getTime())
+        ? "blocked" : "active",
     transmission: vehicle.transmission,
     licenseCategory: vehicle.licenseCategory,
     locationLabel: vehicle.locationLabel,
@@ -1180,11 +1215,15 @@ async function updateStore<T>(
     );
   }
 
-  const store = await readLocalStore();
-  const result = await mutate(store);
-  await writeLocalStore(store);
-  invalidatePublicData();
-  return result;
+  const operation = localMutationQueue.then(async () => {
+    const store = await readLocalStore();
+    const result = await mutate(store);
+    await writeLocalStore(store);
+    invalidatePublicData();
+    return result;
+  });
+  localMutationQueue = operation.catch(() => undefined);
+  return operation;
 }
 
 function invalidatePublicData() {
@@ -1214,7 +1253,7 @@ async function readStore(): Promise<OpsStoreSnapshot> {
   }
 
   return readLocalStore({
-    persistNormalization: process.env.NODE_ENV !== "production",
+    persistNormalization: false,
   });
 }
 
@@ -1274,7 +1313,13 @@ async function ensureLocalStoreFile(options?: {
 async function writeLocalStore(store: OpsStoreSnapshot) {
   const directory = path.dirname(LOCAL_STORE_PATH);
   await mkdir(directory, { recursive: true });
-  await writeFile(LOCAL_STORE_PATH, JSON.stringify(store, null, 2), "utf8");
+  const temporary = `${LOCAL_STORE_PATH}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(temporary, JSON.stringify(store, null, 2), "utf8");
+    await rename(temporary, LOCAL_STORE_PATH);
+  } finally {
+    await rm(temporary, { force: true });
+  }
 }
 
 function createSeedStore(now: Date = new Date()): OpsStoreSnapshot {
@@ -1457,35 +1502,16 @@ function getMaintenanceVehicleCount(store: OpsStoreSnapshot, now: Date) {
   return vehicleSlugs.size;
 }
 
-function getLocalDateKey(date: Date) {
-  return new Intl.DateTimeFormat("sv-SE", {
-    timeZone: "Africa/Casablanca",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
+function getLocalDateKey(date: Date) { return rentalDateKey(date); }
 
-function buildReservationReference(vehicleSlug: string) {
-  const stamp = Date.now().toString(36).slice(-5).toUpperCase();
+function buildReservationReference(vehicleSlug: string, existing: readonly OpsReservationRecord[]) {
   const slug = vehicleSlug.replace(/[^a-z0-9]/gi, "").slice(0, 4).toUpperCase();
-  return `AM-${slug}-${stamp}`;
-}
-
-function buildReservationWindow(draft: ReservationDraft) {
-  const pickupHour =
-    draft.pickupMode === "delivery" ? DELIVERY_PICKUP_HOUR : DEFAULT_PICKUP_HOUR;
-  const returnHour =
-    draft.pickupMode === "delivery" ? DELIVERY_RETURN_HOUR : DEFAULT_RETURN_HOUR;
-
-  return {
-    pickupAt: createIsoFromDate(draft.pickupDate, pickupHour),
-    returnAt: createIsoFromDate(draft.returnDate, returnHour),
-  };
-}
-
-function createIsoFromDate(date: string, hour: number) {
-  return new Date(`${date}T${String(hour).padStart(2, "0")}:00:00`).toISOString();
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const stamp = randomUUID().replaceAll("-", "").slice(0, 10).toUpperCase();
+    const reference = `AM-${slug}-${stamp}`;
+    if (!existing.some((record) => record.reference === reference)) return reference;
+  }
+  throw new Error("Impossible de générer une référence unique.");
 }
 
 function getReservationStatusNote(status: OpsReservationStatus) {
@@ -1511,7 +1537,7 @@ function rangesOverlap(
   windowEndAt: string,
 ) {
   return (
-    new Date(startAt).getTime() <= new Date(windowEndAt).getTime() &&
-    new Date(windowStartAt).getTime() <= new Date(endAt).getTime()
+    new Date(startAt).getTime() < new Date(windowEndAt).getTime() &&
+    new Date(windowStartAt).getTime() < new Date(endAt).getTime()
   );
 }

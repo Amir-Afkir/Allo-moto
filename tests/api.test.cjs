@@ -14,7 +14,7 @@ const body = () => ({
   draft: { motorcycleSlug: 'bike', pickupDate: '2090-01-01', returnDate: '2090-01-02', pickupMode: 'motorcycle-location', permit: 'A' },
   clientDraft: { firstName: 'Test', lastName: 'Client', email: 'test@example.invalid', phone: '+33000000000', preferredContact: 'email', permitType: 'A', consentDataUse: true },
 });
-const postRequest = (value = body(), headers = {}) => new Request('https://test.invalid/api/reservations', { method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(value) });
+const postRequest = (value = body(), headers = {}) => new Request('https://test.invalid/api/reservations', { method: 'POST', headers: { 'content-type': 'application/json', 'idempotency-key': 'b9bf9826-ddce-40a4-8b39-3fb7cc0c3b11', ...headers }, body: JSON.stringify(value) });
 async function environment(work) {
   const keys = ['ADMIN_USERNAME','ADMIN_PASSWORD','ADMIN_SESSION_SECRET','NODE_ENV'];
   const previous = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
@@ -37,6 +37,7 @@ test('API sets a purpose-bound HttpOnly private receipt only after successful pe
   let created = 0;
   const loader = apiLoader(async (input) => {
     created += 1;
+    assert.equal(input.idempotencyKey, 'b9bf9826-ddce-40a4-8b39-3fb7cc0c3b11');
     return { reservation: { id: 'secret-server-id', reference: 'MY-REFERENCE', vehicleSlug: input.draft.motorcycleSlug, pickupAt: '2090-01-01T10:00:00Z', returnAt: '2090-01-02T18:00:00Z', pickupMode: 'motorcycle-location', status: 'pending', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), adminNote: 'PRIVATE-NOTE', documentNumber: 'PRIVATE-PASSPORT' } };
   });
   const route = loader.load('app/api/reservations/route.ts');
@@ -103,4 +104,16 @@ test('admin auth protects server entry points, issues secure v2 cookie and inval
   process.env.ADMIN_PASSWORD = randomBytes(16).toString('hex');
   assert.equal(await auth.isAdminAuthenticated(), false);
   await auth.clearAdminSession(); assert.equal(values.size, 0);
+}));
+
+
+test('missing or malformed idempotency keys are refused before persistence', () => environment(async () => {
+  let created = 0;
+  const route = apiLoader(async () => { created++; }).load('app/api/reservations/route.ts');
+  for (const key of ['', 'guessable', 'x'.repeat(500)]) {
+    const response = await route.POST(postRequest(body(), { 'idempotency-key': key }));
+    assert.equal(response.status, 400);
+    assert.equal(response.cookieWrites.length, 0);
+  }
+  assert.equal(created, 0);
 }));
