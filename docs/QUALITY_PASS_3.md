@@ -35,7 +35,12 @@ Base : main `7e08deb807e4cc2b41a0c8f8c86f773dbb6b5709`.
 La CI ajoute Playwright, Chromium desktop et WebKit avec viewport/tactile iPhone simulés.
 Les scénarios utilisent le vrai serveur Next en développement, ses actions/API et une base
 PostgreSQL jetable, jamais une API de réservation simulée. Le build de production est vérifié
-séparément. Le traitement des images est aussi testé avec la bibliothèque native réelle.
+séparément par `npm run test:production` : vrai build puis `next start`, avec des dossiers
+personnels fictifs dans un snapshot jetable. Les réponses HTML/RSC du public sont vérifiées
+sans se limiter au DOM visible. Le contrôle est réservé au checkout GitHub Actions ; il
+restaure le seed original dans un finally et ne se connecte à aucune base. `next dev` peut
+émettre des traces internes : il ne doit jamais être exposé comme service de production.
+Le traitement des images est aussi testé avec la bibliothèque native réelle.
 Les erreurs navigateur, pages invalides, confidentialité et fichier envoyé de plus d'un Mio
 font partie des contrôles. Les noms, documents et identifiants des fixtures sont fictifs.
 

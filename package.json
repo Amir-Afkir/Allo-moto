@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "optimize:images": "node optimize-images.mjs",
     "test": "node --test tests/*.test.cjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:production": "node tests/production-smoke.cjs"
   },
   "dependencies": {
     "mapbox-gl": "^3.15.0",
