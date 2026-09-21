@@ -1,5 +1,10 @@
 # Repo Cartography
 
+> Mise à jour sécurité/données : voir `docs/SECURITY_DATA_PASS_1.md`. Le planning public
+> est anonymisé et le suivi privé passe par un cookie signé. Les refus, annulations et
+> retours sont conservés : ne jamais réintroduire une suppression automatique des dossiers.
+> Les descriptions historiques du stockage JSON ci-dessous ne décrivent pas PostgreSQL en production.
+
 Ce document sert de point d'entrée rapide pour un prochain audit Codex.
 
 ## But du repo
@@ -261,8 +266,8 @@ Ces chemins ne doivent pas être réintroduits sans raison :
    - `confirmed` :
      - garde la demande
      - crée un `vehicleBlock` de type `reservation`
-   - `rejected` / `cancelled` :
-     - supprime la demande
+   - `rejected` / `cancelled` / `completed` :
+     - conserve la demande avec son statut terminal
      - supprime les blocs liés
 
 ### Disponibilité publique

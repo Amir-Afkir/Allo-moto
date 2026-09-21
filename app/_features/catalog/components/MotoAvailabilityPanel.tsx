@@ -11,9 +11,9 @@ import {
 } from "@/app/_features/reservation/data/reservation";
 import { usePlanningLedger } from "@/app/_features/reservation/hooks/usePlanningLedger";
 import type {
-  PlanningAvailabilityBlock,
-  PlanningReservationRecord,
-} from "@/app/_features/reservation/data/reservation-planning";
+  PublicPlanningBlock,
+  PublicPlanningReservation,
+} from "@/app/_features/reservation/data/public-planning";
 import { Badge } from "@/app/_shared/ui/Badge";
 import { Button } from "@/app/_shared/ui/Button";
 import { Input } from "@/app/_shared/ui/Input";
@@ -23,8 +23,8 @@ const defaultWindow = createDefaultReservationWindow();
 
 type MotoAvailabilityPanelProps = {
   motorcycle: CatalogMotorcycle;
-  initialPlanningReservations: ReadonlyArray<PlanningReservationRecord>;
-  initialPlanningBlocks: ReadonlyArray<PlanningAvailabilityBlock>;
+  initialPlanningReservations: ReadonlyArray<PublicPlanningReservation>;
+  initialPlanningBlocks: ReadonlyArray<PublicPlanningBlock>;
 };
 
 export function MotoAvailabilityPanel({

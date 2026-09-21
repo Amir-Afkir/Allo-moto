@@ -16,6 +16,9 @@ type DetailLine = { label: string; value: string; note?: string };
 export type ReservationConfirmationState =
   | "pending_validation"
   | "confirmed"
+  | "rejected"
+  | "cancelled"
+  | "completed"
   | "partial";
 
 export type ReservationConfirmationRecord = {
@@ -24,6 +27,7 @@ export type ReservationConfirmationRecord = {
   createdAt: string;
   updatedAt: string;
   reservationId: string | null;
+  selectionKey: string;
 };
 
 export type ReservationConfirmationSnapshot = {
@@ -64,30 +68,28 @@ export function createReservationConfirmationRecord({
 }): ReservationConfirmationRecord {
   void clientDraft;
 
-  const readyToSubmit = Boolean(
-    motorcycle && evaluation.available && clientValidation.readyForReview,
-  );
+  void motorcycle;
+  void clientValidation;
+  void evaluation;
   const now = new Date().toISOString();
-  const reference =
-    planningReservation?.reference ??
-    existingRecord?.reference ??
-    buildReference(motorcycle, draft);
-
+  const reference = planningReservation?.reference || existingRecord?.reference || "À attribuer après envoi";
+  const status = planningReservation?.reservationStatus;
+  const state: ReservationConfirmationState = planningReservation?.reference && (
+    status === "confirmed" || status === "pending_validation" || status === "rejected" ||
+    status === "cancelled" || status === "completed"
+  ) ? status : "partial";
   return {
-    state:
-      planningReservation?.reservationStatus === "confirmed"
-        ? "confirmed"
-        : planningReservation?.reservationStatus === "pending_validation"
-          ? "pending_validation"
-          : readyToSubmit
-            ? "pending_validation"
-            : "partial",
+    state,
     reference,
     createdAt: existingRecord?.createdAt ?? now,
     updatedAt: now,
-    reservationId:
-      planningReservation?.id ?? existingRecord?.reservationId ?? null,
+    reservationId: planningReservation?.id ?? existingRecord?.reservationId ?? null,
+    selectionKey: reservationSelectionKey(draft),
   };
+}
+
+export function reservationSelectionKey(draft: Pick<ReservationDraft, "motorcycleSlug" | "pickupDate" | "returnDate" | "pickupMode">) {
+  return JSON.stringify([draft.motorcycleSlug, draft.pickupDate, draft.returnDate, draft.pickupMode]);
 }
 
 export function buildReservationConfirmationSnapshot({
@@ -117,6 +119,9 @@ export function buildReservationConfirmationSnapshot({
     existingRecord: confirmationRecord,
   });
   const state = record.state;
+  const terminalCopy = state === "rejected" ? "La demande a été refusée."
+    : state === "cancelled" ? "La réservation a été annulée."
+    : state === "completed" ? "Le retour a été enregistré. La location est terminée." : null;
   const fullName =
     [clientDraft.firstName, clientDraft.lastName].filter(Boolean).join(" ") ||
     "Client a confirmer";
@@ -160,23 +165,24 @@ export function buildReservationConfirmationSnapshot({
   return {
     state,
     statusLabel:
+      state === "rejected" ? "Refusée" : state === "cancelled" ? "Annulée" : state === "completed" ? "Terminée" :
       state === "confirmed"
         ? "Confirmee"
         : state === "pending_validation"
           ? "En attente de validation"
           : "A completer",
-    statusNote:
+    statusNote: terminalCopy ?? (
       state === "confirmed"
         ? "La reservation est confirmee. Le paiement se fera au retrait."
         : state === "pending_validation"
           ? "La demande est enregistree. Confirmation manuelle en cours."
-          : "La reservation reste incomplete pour l'instant.",
-    heroCopy:
+          : "Aucune demande enregistrée n'a encore été vérifiée."),
+    heroCopy: terminalCopy ?? (
       state === "confirmed"
         ? "Conservez cette reference pour le retrait et le paiement sur place."
         : state === "pending_validation"
           ? "Votre demande est bien enregistree. Nous reviendrons vers vous pour confirmer la reservation."
-          : "Terminez les etapes restantes avant l'envoi.",
+          : "Envoyez votre demande ou vérifiez votre accès au suivi."),
     heroLine: motorcycleName,
     referenceValue: record.reference,
     referenceNote:
@@ -185,7 +191,7 @@ export function buildReservationConfirmationSnapshot({
         : "Reference de suivi de votre demande.",
     shareCopy: `Reservation ${record.reference} - ${motorcycleName} - ${formatDateRange(draft.pickupDate, draft.returnDate)}`,
     summaryLines,
-    nextStepLines:
+    nextStepLines: terminalCopy ? [{ label: "Statut", value: terminalCopy }] :
       state === "confirmed"
         ? [
             { label: "Suite", value: "Paiement au retrait." },
@@ -215,15 +221,15 @@ export function buildReservationConfirmationSnapshot({
             : "Disponible pendant la validation.",
       },
     ],
-    blockingItems: clientValidation.readyForReview
+    blockingItems: planningReservation ? [] : clientValidation.readyForReview
       ? evaluation.blockers
       : [...evaluation.blockers, ...clientValidation.missingRequiredLabels],
-    paymentPreviewCopy:
+    paymentPreviewCopy: terminalCopy ?? (
       state === "confirmed"
         ? "Paiement prevu au retrait."
         : state === "pending_validation"
           ? "Paiement au retrait une fois la reservation confirmee."
-          : "Le paiement se fera au retrait, apres validation de la demande.",
+          : "Le paiement se fera au retrait, apres validation de la demande."),
     consentCopy:
       state === "confirmed"
         ? "Je conserve cette confirmation."
@@ -232,97 +238,41 @@ export function buildReservationConfirmationSnapshot({
 }
 
 export function loadReservationConfirmationRecord(): ReservationConfirmationRecord | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
+  if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw) as Partial<ReservationConfirmationRecord> & {
-      state?: string;
-    };
-
-    if (!parsed || typeof parsed.reference !== "string") {
-      return null;
-    }
-
-    const state = normalizeConfirmationState(parsed.state);
-    if (!state) {
-      return null;
-    }
-
+    window.localStorage.removeItem(STORAGE_KEY);
+    const raw = window.sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const record = JSON.parse(raw) as Partial<ReservationConfirmationRecord>;
+    const updatedAt = typeof record.updatedAt === "string" ? Date.parse(record.updatedAt) : NaN;
+    if (
+      typeof record.reference !== "string" || record.reference.length > 256 ||
+      typeof record.reservationId !== "string" || record.reservationId.length > 256 ||
+      typeof record.selectionKey !== "string" || record.selectionKey.length > 512 ||
+      !Number.isFinite(updatedAt) || Date.now() - updatedAt > 14 * 24 * 60 * 60 * 1000
+    ) return null;
     return {
-      state,
-      reference: parsed.reference,
-      createdAt:
-        typeof parsed.createdAt === "string"
-          ? parsed.createdAt
-          : new Date().toISOString(),
-      updatedAt:
-        typeof parsed.updatedAt === "string"
-          ? parsed.updatedAt
-          : new Date().toISOString(),
-      reservationId:
-        typeof parsed.reservationId === "string" ? parsed.reservationId : null,
+      state: "partial",
+      reference: record.reference,
+      reservationId: record.reservationId,
+      selectionKey: record.selectionKey,
+      createdAt: typeof record.createdAt === "string" ? record.createdAt : new Date().toISOString(),
+      updatedAt: record.updatedAt!,
     };
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-export function saveReservationConfirmationRecord(
-  record: ReservationConfirmationRecord | null,
-): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (!record) {
+export function saveReservationConfirmationRecord(record: ReservationConfirmationRecord | null): void {
+  if (typeof window === "undefined") return;
+  try {
     window.localStorage.removeItem(STORAGE_KEY);
-    return;
+    if (!record?.reservationId) window.sessionStorage.removeItem(STORAGE_KEY);
+    else window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(record));
+  } catch {
+    // Private HTTP-only receipt remains usable when browser storage is unavailable.
   }
-
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(record));
 }
 
 export function clearReservationConfirmationRecord(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.removeItem(STORAGE_KEY);
-}
-
-function buildReference(
-  motorcycle: CatalogMotorcycle | null,
-  draft: ReservationDraft,
-): string {
-  const base = motorcycle?.slug ?? "reservation";
-  const dateToken = `${draft.pickupDate || "date"}-${draft.returnDate || "retour"}`.replaceAll(
-    "-",
-    "",
-  );
-  return `${base}-${dateToken}`.toUpperCase();
-}
-
-function normalizeConfirmationState(
-  state: string | undefined,
-): ReservationConfirmationState | null {
-  if (state === "pending_sync" || state === "draft" || state === "ready_for_payment") {
-    return "pending_validation";
-  }
-
-  if (state === "payment_pending") {
-    return "pending_validation";
-  }
-
-  if (state === "confirmed" || state === "pending_validation" || state === "partial") {
-    return state;
-  }
-
-  return null;
+  saveReservationConfirmationRecord(null);
 }

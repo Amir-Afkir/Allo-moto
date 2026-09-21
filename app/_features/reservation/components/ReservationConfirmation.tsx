@@ -31,6 +31,7 @@ export function ReservationConfirmation({
   const [copied, setCopied] = useState(false);
 
   const summaryMotorcycle = motorcycle ?? null;
+  const terminal = ["rejected", "cancelled", "completed"].includes(snapshot.state);
   const contactValue =
     snapshot.supportLines.find((line) => line.label === "Contact")?.value ??
     "À compléter";
@@ -82,7 +83,7 @@ export function ReservationConfirmation({
     <section id="confirmation" className="space-y-8 border-b border-border/60 pb-8">
       <div className="space-y-3 border-b border-border/60 pb-6">
         <h2 className="heading-2 text-foreground">
-          {snapshot.state === "confirmed"
+          {terminal ? snapshot.statusLabel : snapshot.state === "confirmed"
             ? "Votre réservation est confirmée."
             : snapshot.state === "pending_validation"
               ? "Votre demande a bien été envoyée."
@@ -133,7 +134,7 @@ export function ReservationConfirmation({
         <div className="space-y-2">
           <p className="label">Suite</p>
           <p className="text-sm text-muted-foreground">
-            {snapshot.state === "confirmed"
+            {terminal ? "Le dossier est conservé. Contactez Allo Moto pour toute question." : snapshot.state === "confirmed"
               ? "Conservez la référence et présentez-vous au retrait pour régler la location."
               : snapshot.state === "pending_validation"
                 ? "Nous reviendrons vers vous pour confirmer la réservation. Le paiement se fera au retrait."
@@ -145,7 +146,7 @@ export function ReservationConfirmation({
         </div>
 
         <div className="flex flex-col gap-4">
-          {snapshot.state === "confirmed" ? (
+          {snapshot.state === "confirmed" || terminal ? (
             <Button
               as="link"
               href={catalogHref}

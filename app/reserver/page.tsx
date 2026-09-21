@@ -11,7 +11,7 @@ import {
 type SearchParams = Record<string, string | string[] | undefined>;
 
 type ReservationPageProps = {
-  searchParams?: SearchParams;
+  searchParams?: Promise<SearchParams>;
 };
 
 export const dynamic = "force-dynamic";

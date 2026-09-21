@@ -177,9 +177,7 @@ function getOpsSql(): OpsSql {
     ssl: process.env.NODE_ENV === "production" ? "require" : undefined,
   });
 
-  if (process.env.NODE_ENV !== "production") {
-    globalForOpsStore.__alloMotoOpsSql = sql;
-  }
+  globalForOpsStore.__alloMotoOpsSql = sql;
 
   return sql;
 }

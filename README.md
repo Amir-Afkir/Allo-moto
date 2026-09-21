@@ -76,3 +76,13 @@ npm run lint
 npm run typecheck
 npm run build
 ```
+
+## Sécurité et données — passe 1
+
+Voir [le guide de déploiement](docs/SECURITY_DATA_PASS_1.md) avant de déployer.
+Les identifiants admin et `ADMIN_SESSION_SECRET` sont obligatoires, sans valeur de secours.
+La consultation publique ne reçoit que les disponibilités anonymisées ; le suivi d’une demande
+utilise un cookie privé signé. Les dossiers sont conservés après refus, annulation ou retour.
+
+Vérifications : `npm ci`, `npm run lint`, `npm test`, `npm run build`, `npm run typecheck`.
+Le test PostgreSQL nécessite une base jetable via `TEST_DATABASE_URL` (jamais la base de production).

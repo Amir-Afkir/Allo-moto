@@ -16,7 +16,7 @@ import type { ReservationPreferredContact } from "@/app/_features/reservation/da
 export const OPS_STORE_VERSION = 1;
 
 export type OpsVehicleStatus = "active" | "hidden" | "maintenance";
-export type OpsReservationStatus = "pending" | "confirmed";
+export type OpsReservationStatus = "pending" | "confirmed" | "rejected" | "cancelled" | "completed";
 export type OpsVehicleBlockType =
   | "reservation"
   | "maintenance"

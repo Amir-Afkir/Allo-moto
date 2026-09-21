@@ -90,34 +90,46 @@ export function createEmptyReservationClientDraft(): ReservationClientDraft {
 }
 
 export function loadReservationClientDraft(): ReservationClientDraft | null {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
+  if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
+    window.localStorage.removeItem(STORAGE_KEY);
+    const raw = window.sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const stored = JSON.parse(raw) as { version?: number; expiresAt?: number; draft?: Partial<ReservationClientDraft> };
+    if (stored?.version !== 2 || typeof stored.expiresAt !== "number" || stored.expiresAt <= Date.now() || !stored.draft) {
+      window.sessionStorage.removeItem(STORAGE_KEY);
       return null;
     }
-
-    const parsed = JSON.parse(raw) as Partial<ReservationClientDraft>;
-    return normalizeReservationClientDraft(parsed);
+    return normalizeReservationClientDraft(stored.draft);
   } catch {
     return null;
   }
 }
 
 export function saveReservationClientDraft(draft: ReservationClientDraft | null): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (!draft) {
+  if (typeof window === "undefined") return;
+  try {
     window.localStorage.removeItem(STORAGE_KEY);
-    return;
+    if (!draft) {
+      window.sessionStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+    const safeDraft = {
+      ...draft,
+      permitNumber: "",
+      documentType: "none",
+      documentNumber: "",
+      notes: "",
+      consentDataUse: false,
+    };
+    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+      version: 2,
+      expiresAt: Date.now() + 2 * 60 * 60 * 1000,
+      draft: safeDraft,
+    }));
+  } catch {
+    // A blocked or full browser store must not prevent a reservation.
   }
-
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
 }
 
 export function validateReservationClientDraft(
@@ -248,7 +260,11 @@ function normalizeReservationClientDraft(value: Partial<ReservationClientDraft>)
   const draft = createEmptyReservationClientDraft();
   return {
     ...draft,
-    ...value,
+    firstName: typeof value.firstName === "string" ? value.firstName.slice(0, 100) : "",
+    lastName: typeof value.lastName === "string" ? value.lastName.slice(0, 100) : "",
+    email: typeof value.email === "string" ? value.email.slice(0, 254) : "",
+    phone: typeof value.phone === "string" ? value.phone.slice(0, 40) : "",
+    country: typeof value.country === "string" ? value.country.slice(0, 100) : "",
     preferredContact:
       value.preferredContact === "phone" || value.preferredContact === "email" || value.preferredContact === "whatsapp"
         ? value.preferredContact
@@ -257,11 +273,8 @@ function normalizeReservationClientDraft(value: Partial<ReservationClientDraft>)
       value.permitType === "B" || value.permitType === "A1" || value.permitType === "A2" || value.permitType === "A"
         ? value.permitType
         : draft.permitType,
-    documentType:
-      value.documentType === "identity-card" || value.documentType === "passport" || value.documentType === "driving-license"
-        ? value.documentType
-        : draft.documentType,
-    consentDataUse: Boolean(value.consentDataUse),
+    documentType: "none",
+    consentDataUse: false,
   };
 }
 
