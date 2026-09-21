@@ -62,6 +62,37 @@ jobs:
         run: createdb -h 127.0.0.1 -U postgres allo_moto_e2e
         env:
           PGPASSWORD: disposable-test-password
+      - name: Enable TLS on disposable PostgreSQL
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+          PGHOST: 127.0.0.1
+          PGUSER: postgres
+          PGPASSWORD: disposable-test-password
+          PGDATABASE: allo_moto_e2e
+        run: |
+          test "$GITHUB_ACTIONS" = true
+          test -n "$PG_CONTAINER"
+          directory=$(mktemp -d)
+          trap 'rm -rf "$directory"' EXIT
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=localhost \
+            -addext 'subjectAltName=DNS:localhost,IP:127.0.0.1' \
+            -keyout "$directory/server.key" -out "$directory/server.crt" >/dev/null 2>&1
+          docker cp "$directory/server.key" "$PG_CONTAINER:/tmp/e2e-postgres.key"
+          docker cp "$directory/server.crt" "$PG_CONTAINER:/tmp/e2e-postgres.crt"
+          docker exec "$PG_CONTAINER" sh -c 'chown postgres:postgres /tmp/e2e-postgres.key /tmp/e2e-postgres.crt && chmod 600 /tmp/e2e-postgres.key'
+          psql -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET ssl_cert_file = '/tmp/e2e-postgres.crt'"
+          psql -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET ssl_key_file = '/tmp/e2e-postgres.key'"
+          psql -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET ssl = on"
+          psql -v ON_ERROR_STOP=1 -c 'SELECT pg_reload_conf()'
+          for attempt in $(seq 1 10); do
+            if PGSSLMODE=require psql -tAc 'SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()' | grep -qx t; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo 'Disposable PostgreSQL TLS is not ready.' >&2
+          exit 1
       - name: Browser regression tests
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: npm run test:e2e

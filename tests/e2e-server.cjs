@@ -28,6 +28,13 @@ function stop() {
 }
 process.on('SIGTERM', stop); process.on('SIGINT', stop);
 async function main() {
+  // Match the application's production TLS requirement and fail immediately on
+  // an incorrectly configured local service instead of hanging the build.
+  const sql = require('postgres')(databaseUrl, { ssl: 'require', max: 1, connect_timeout: 5 });
+  try {
+    const [connection] = await sql`select ssl from pg_stat_ssl where pid = pg_backend_pid()`;
+    assert.equal(connection.ssl, true, 'Disposable PostgreSQL must support TLS for production E2E.');
+  } finally { await sql.end({ timeout: 1 }); }
   const certificate = spawnSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(directory, 'key.pem'), '-out', path.join(directory, 'cert.pem'), '-days', '1', '-subj', '/CN=localhost', '-addext', 'subjectAltName=DNS:localhost,IP:127.0.0.1'], { stdio: 'pipe', timeout: 20000 });
   assert.equal(certificate.status, 0, 'Could not generate test TLS certificate.');
   // Do not reuse the smoke test's statically rendered seed-fixture build.

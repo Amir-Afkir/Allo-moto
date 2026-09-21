@@ -34,7 +34,7 @@ Les coordonnées vides ou hors limites ne deviennent plus 0,0. L’absence d’a
 
 - `npm test` : tests serveur, formats natifs, API, prix, cookies, nettoyage d’images et concurrence. Le cas PostgreSQL requiert `TEST_DATABASE_URL` jetable et inclut deux processus indépendants pour les conflits d’édition.
 - `npm run test:production` : build Turbopack et six contrôles HTTP avec dossiers personnels fictifs ; uniquement en CI jetable.
-- `E2E_DATABASE_URL=.../allo_moto_e2e npm run test:e2e` : nouveau build production et vrai `next start`, PostgreSQL local jetable, proxy HTTPS avec certificat local. Aucun affaiblissement de Secure dans le code applicatif. Les scénarios couvrent Chromium bureau et WebKit mobile simulé, sans nouvelle tentative automatique.
+- `E2E_DATABASE_URL=.../allo_moto_e2e npm run test:e2e` : nouveau build production et vrai `next start`, PostgreSQL local jetable avec TLS activé, proxy HTTPS avec certificat local. Aucun affaiblissement de Secure dans le code applicatif. Les scénarios couvrent Chromium bureau et WebKit mobile simulé, sans nouvelle tentative automatique.
 - Le fournisseur Cloudinary est simulé **uniquement** par un preload Node du lanceur de test. L’authentification, les Server Actions, le décodage/normalisation, la signature, la persistance et l’optimiseur Next restent réellement traversés. Ce n’est pas un test du compte Cloudinary ou de Netlify en production.
 
 La CI permanente exécute lint sans avertissement, tests, build/contrôles HTTP, typage, audit npm et navigateur. Les preuves exactes et nombres finaux sont consignés dans la PR et les logs de CI.
