@@ -34,6 +34,9 @@ const STATUS_OPTIONS: ReadonlyArray<{
   { value: "all", label: "Toutes" },
   { value: "pending", label: "En attente" },
   { value: "confirmed", label: "Confirmees" },
+  { value: "rejected", label: "Refusees" },
+  { value: "cancelled", label: "Annulees" },
+  { value: "completed", label: "Terminees" },
 ] as const;
 
 export default async function OpsReservationsPage({
@@ -135,7 +138,7 @@ export default async function OpsReservationsPage({
       </Section>
 
       <Section
-        title="Demandes ouvertes"
+        title="Demandes et historique"
         subtitle="Qui, quoi, quand, puis l'action a prendre."
         className="pt-0"
         density="compact"
@@ -280,7 +283,7 @@ function StatusInlineForm({
   returnTo,
 }: {
   reservationId: string;
-  nextStatus: "confirmed" | "rejected" | "cancelled";
+  nextStatus: "confirmed" | "rejected" | "cancelled" | "completed";
   label: string;
   variant: "accent" | "outline";
   returnTo: string;
@@ -363,8 +366,8 @@ function getFilterSubtitle(focus: OpsReservationFocus | null, vehicleSlug: strin
 
 function getReservationActionLabel(status: OpsReservationStatus) {
   return status === "confirmed"
-    ? "Creneau confirme, la moto est bloquee."
-    : "Confirmer ou liberer la moto.";
+    ? "Creneau confirme, retour a enregistrer."
+    : status === "pending" ? "Confirmer ou liberer la moto." : "Dossier conserve dans l'historique.";
 }
 
 function firstValue(value: string | string[] | undefined) {
@@ -372,5 +375,5 @@ function firstValue(value: string | string[] | undefined) {
 }
 
 function isStatus(value: string): value is OpsReservationStatus | "all" {
-  return ["all", "pending", "confirmed"].includes(value);
+  return STATUS_OPTIONS.some((option) => option.value === value);
 }

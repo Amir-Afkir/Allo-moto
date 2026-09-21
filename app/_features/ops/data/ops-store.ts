@@ -2,7 +2,9 @@ import "server-only";
 
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { unstable_cache } from "next/cache";
+import { revalidateTag, unstable_cache } from "next/cache";
+import { toPublicPlanningReservation, toPublicPlanningBlock } from "./public-planning";
+import { parseReservationRequest, ReservationInputError } from "@/app/_features/reservation/data/reservation-request";
 import {
   MOTORCYCLE_CATALOG,
   MOTORCYCLE_CATEGORY_LABELS,
@@ -142,7 +144,7 @@ const getCachedFeaturedPublicMotorcycles = unstable_cache(
 
 const getCachedPlanningContext = unstable_cache(
   async () => getPlanningContextUncached(new Date()),
-  ["public-planning-context"],
+  ["public-planning-context-privacy-v2"],
   {
     revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
     tags: ["public-planning"],
@@ -160,7 +162,7 @@ const getCachedPublicHomeData = unstable_cache(
 
 const getCachedPublicCatalogPageData = unstable_cache(
   async () => getPublicCatalogPageDataUncached(new Date()),
-  ["public-catalog-page-data"],
+  ["public-catalog-page-data-privacy-v2"],
   {
     revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
     tags: ["public-catalog", "public-planning"],
@@ -170,7 +172,7 @@ const getCachedPublicCatalogPageData = unstable_cache(
 const getCachedPublicMotorcycleDetailPageData = unstable_cache(
   async (slug: string) =>
     getPublicMotorcycleDetailPageDataUncached(slug, new Date()),
-  ["public-motorcycle-detail-page-data"],
+  ["public-motorcycle-detail-page-data-privacy-v2"],
   {
     revalidate: PUBLIC_CATALOG_REVALIDATE_SECONDS,
     tags: ["public-catalog", "public-planning"],
@@ -322,18 +324,17 @@ function findPublicMotorcycleFromStore(
 }
 
 function buildPlanningContextFromStore(store: OpsStoreSnapshot, now: Date) {
-  const reservations = store.reservations.map(toPlanningReservationRecord);
-  const blocks = store.vehicleBlocks
-    .filter((block) => block.type !== "reservation")
-    .map(toPlanningAvailabilityBlock);
-  const motorcycles = store.vehicles.map((vehicle) =>
-    buildCatalogMotorcycle(vehicle, store, now),
-  );
-
+  const visibleSlugs = new Set(store.vehicles
+    .filter((vehicle) => vehicle.opsStatus !== "hidden")
+    .map((vehicle) => vehicle.slug));
   return {
-    reservations,
-    blocks,
-    motorcycles,
+    reservations: store.reservations
+      .filter((reservation) => reservation.status === "confirmed" && visibleSlugs.has(reservation.vehicleSlug))
+      .map(toPublicPlanningReservation),
+    blocks: store.vehicleBlocks
+      .filter((block) => block.type !== "reservation" && visibleSlugs.has(block.vehicleSlug))
+      .map(toPublicPlanningBlock),
+    motorcycles: buildPublicCatalogFromStore(store, now),
   };
 }
 
@@ -491,7 +492,9 @@ export async function getOpsActionSummary(now: Date = new Date()): Promise<OpsAc
   const todayKey = getLocalDateKey(now);
 
   return {
-    openReservations: store.reservations.length,
+    openReservations: store.reservations.filter((reservation) =>
+      reservation.status === "pending" || reservation.status === "confirmed",
+    ).length,
     pendingReservations: store.reservations.filter(
       (reservation) => reservation.status === "pending",
     ).length,
@@ -528,12 +531,13 @@ export async function createReservationRequest(input: {
   draft: ReservationDraft;
   clientDraft: ReservationClientDraft;
 }) {
+  input = parseReservationRequest(input);
   return updateStore(async (store) => {
     const vehicle = store.vehicles.find(
       (candidate) => candidate.slug === input.draft.motorcycleSlug,
     );
     if (!vehicle) {
-      throw new Error("Moto introuvable.");
+      throw new ReservationInputError("Moto introuvable.");
     }
 
     const clientValidation = validateReservationClientDraft(
@@ -541,7 +545,7 @@ export async function createReservationRequest(input: {
       vehicle.licenseCategory,
     );
     if (!clientValidation.readyForReview) {
-      throw new Error(
+      throw new ReservationInputError(
         clientValidation.permitCompatibilityMessage ??
           "Le dossier client est incomplet.",
       );
@@ -560,7 +564,7 @@ export async function createReservationRequest(input: {
     });
 
     if (!evaluation.available) {
-      throw new Error(evaluation.blockers[0] ?? "Creneau indisponible.");
+      throw new ReservationInputError(evaluation.blockers[0] ?? "Creneau indisponible.");
     }
 
     const nowIso = new Date().toISOString();
@@ -614,7 +618,7 @@ export async function createReservationRequest(input: {
 
 export async function updateReservationStatus(input: {
   reservationId: string;
-  nextStatus: "confirmed" | "rejected" | "cancelled";
+  nextStatus: "confirmed" | "rejected" | "cancelled" | "completed";
   adminNote?: string;
 }) {
   return updateStore(async (store) => {
@@ -623,6 +627,20 @@ export async function updateReservationStatus(input: {
     );
     if (!reservation) {
       throw new Error("Reservation introuvable.");
+    }
+
+    // Terminal records remain readable but cannot be reopened by a stale admin form.
+    if (reservation.status === input.nextStatus) {
+      return { reservationId: reservation.id, removed: false };
+    }
+    const allowed = reservation.status === "pending"
+      ? ["confirmed", "rejected", "cancelled"]
+      : reservation.status === "confirmed" ? ["cancelled", "completed"] : [];
+    if (!allowed.includes(input.nextStatus)) {
+      throw new Error("Transition de reservation invalide.");
+    }
+    if (input.nextStatus === "completed" && new Date(reservation.pickupAt).getTime() > Date.now()) {
+      throw new Error("Le depart de cette location n'a pas encore eu lieu.");
     }
 
     if (input.nextStatus === "confirmed") {
@@ -694,17 +712,14 @@ export async function updateReservationStatus(input: {
       };
     }
 
-    store.reservations = store.reservations.filter(
-      (candidate) => candidate.id !== reservation.id,
-    );
+    reservation.status = input.nextStatus;
+    reservation.adminNote = input.adminNote?.trim() || getReservationStatusNote(input.nextStatus);
+    reservation.updatedAt = new Date().toISOString();
     store.vehicleBlocks = store.vehicleBlocks.filter(
       (block) => block.reservationId !== reservation.id,
     );
 
-    return {
-      reservationId: reservation.id,
-      removed: true,
-    };
+    return { reservationId: reservation.id, removed: false };
   });
 }
 
@@ -926,14 +941,12 @@ export async function deleteVehicle(input: { vehicleSlug: string }) {
       throw new Error("Moto introuvable.");
     }
 
-    const hasOpenReservation = store.reservations.some(
-      (reservation) =>
-        reservation.vehicleSlug === input.vehicleSlug &&
-        (reservation.status === "pending" || reservation.status === "confirmed"),
+    const hasReservationHistory = store.reservations.some(
+      (reservation) => reservation.vehicleSlug === input.vehicleSlug,
     );
 
-    if (hasOpenReservation) {
-      throw new Error("Des reservations en attente ou confirmees existent encore.");
+    if (hasReservationHistory) {
+      throw new Error("Ce vehicule possede un historique. Masquez-le plutot que le supprimer.");
     }
 
     store.vehicles = store.vehicles.filter(
@@ -1078,7 +1091,8 @@ function getCurrentVehicleBlocks(
     if (block.type === "reservation" && block.reservationId) {
       return (
         confirmedReservationIds.has(block.reservationId) &&
-        rangesOverlap(block.startAt, block.endAt, from, to)
+        (rangesOverlap(block.startAt, block.endAt, from, to) ||
+          new Date(block.endAt).getTime() < now.getTime())
       );
     }
 
@@ -1098,7 +1112,7 @@ export function toPlanningReservationRecord(
     pickupMode: reservation.pickupMode,
     pickupLocationLabel: reservation.pickupLocationLabel,
     reservationStatus:
-      reservation.status === "confirmed" ? "confirmed" : "pending_validation",
+      reservation.status === "pending" ? "pending_validation" : reservation.status,
     paymentStatus: "none",
     holdExpiresAt: null,
     paymentSessionId: null,
@@ -1152,6 +1166,7 @@ async function updateStore<T>(
 
       const result = await mutate(workingStore);
       await persist(workingStore);
+      invalidatePublicData();
 
       return result;
     });
@@ -1166,7 +1181,14 @@ async function updateStore<T>(
   const store = await readLocalStore();
   const result = await mutate(store);
   await writeLocalStore(store);
+  invalidatePublicData();
   return result;
+}
+
+function invalidatePublicData() {
+  revalidateTag("public-catalog");
+  revalidateTag("public-planning");
+  revalidateTag("public-home");
 }
 
 async function readStore(): Promise<OpsStoreSnapshot> {
@@ -1307,7 +1329,7 @@ function createSeedStore(now: Date = new Date()): OpsStoreSnapshot {
   };
 }
 
-function normalizeStore(store: OpsStoreSnapshot, now: Date = new Date()) {
+function normalizeStore(store: OpsStoreSnapshot) {
   let vehicleChanged = false;
   const nextVehicles = store.vehicles.map((vehicle) => {
     const nextPrimaryImagePublicId =
@@ -1326,20 +1348,8 @@ function normalizeStore(store: OpsStoreSnapshot, now: Date = new Date()) {
     };
   });
 
-  const nextReservations = store.reservations.filter((reservation) => {
-    if (reservation.status !== "pending" && reservation.status !== "confirmed") {
-      return false;
-    }
-
-    if (reservation.status === "confirmed") {
-      const returnAt = new Date(reservation.returnAt);
-      if (!Number.isNaN(returnAt.getTime()) && returnAt.getTime() < now.getTime()) {
-        return false;
-      }
-    }
-
-    return true;
-  });
+  // Reading data must never delete customer history or imply a physical return.
+  const nextReservations = store.reservations;
 
   const confirmedReservationIds = new Set(
     nextReservations
@@ -1480,6 +1490,12 @@ function getReservationStatusNote(status: OpsReservationStatus) {
   switch (status) {
     case "confirmed":
       return "Reservation confirmee. Paiement au retrait.";
+    case "rejected":
+      return "Demande refusee.";
+    case "cancelled":
+      return "Reservation annulee.";
+    case "completed":
+      return "Retour enregistre. Location terminee.";
     case "pending":
     default:
       return "Demande recue.";

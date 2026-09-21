@@ -29,10 +29,10 @@ import {
   type ReservationConfirmationRecord,
   type ReservationConfirmationSnapshot,
 } from "@/app/_features/reservation/data/reservation-confirmation";
+import type { PublicPlanningBlock, PublicPlanningReservation } from "@/app/_features/reservation/data/public-planning";
+import { reservationSelectionKey } from "@/app/_features/reservation/data/reservation-confirmation";
 import { usePlanningLedger } from "@/app/_features/reservation/hooks/usePlanningLedger";
 import {
-  findPlanningReservation,
-  type PlanningAvailabilityBlock,
   type PlanningReservationRecord,
   upsertPlanningReservation,
 } from "@/app/_features/reservation/data/reservation-planning";
@@ -72,8 +72,8 @@ const ReservationConfirmation = dynamic(
 
 type ReservationTunnelProps = {
   motorcycles: readonly CatalogMotorcycle[];
-  initialPlanningReservations: ReadonlyArray<PlanningReservationRecord>;
-  initialPlanningBlocks: ReadonlyArray<PlanningAvailabilityBlock>;
+  initialPlanningReservations: ReadonlyArray<PublicPlanningReservation>;
+  initialPlanningBlocks: ReadonlyArray<PublicPlanningBlock>;
   initialMotorcycleSlug: string;
   invalidRequestedMotorcycleSlug: string | null;
   initialPickupDate: string;
@@ -116,6 +116,7 @@ export function ReservationTunnel({
   const [currentReservationId, setCurrentReservationId] = useState<string | null>(
     null,
   );
+  const [verifiedReservation, setVerifiedReservation] = useState<PlanningReservationRecord | null>(null);
   const [isSubmittingReservation, setIsSubmittingReservation] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPlanningModalOpen, setIsPlanningModalOpen] = useState(false);
@@ -196,10 +197,7 @@ export function ReservationTunnel({
         clientDraft,
         clientValidation,
         evaluation,
-        planningReservation: findPlanningReservation(
-          planningReservations,
-          currentReservationId,
-        ),
+        planningReservation: verifiedReservation,
         existingRecord: confirmationRecord,
       });
     },
@@ -211,6 +209,7 @@ export function ReservationTunnel({
       draft,
       evaluation,
       planningReservations,
+      verifiedReservation,
       selectedMotorcycle,
     ],
   );
@@ -222,10 +221,7 @@ export function ReservationTunnel({
         clientDraft,
         clientValidation,
         evaluation,
-        planningReservation: findPlanningReservation(
-          planningReservations,
-          currentReservationId,
-        ),
+        planningReservation: verifiedReservation,
         confirmationRecord: resolvedConfirmationRecord,
       }),
     [
@@ -235,6 +231,7 @@ export function ReservationTunnel({
       draft,
       evaluation,
       planningReservations,
+      verifiedReservation,
       resolvedConfirmationRecord,
       selectedMotorcycle,
     ],
@@ -276,7 +273,7 @@ export function ReservationTunnel({
     hasChecked,
     isReady,
     readyForPreparation,
-    paymentReady: confirmationSnapshot.state === "pending_validation",
+    paymentReady: readyForPreparation,
     confirmationReady: confirmationSnapshot.state === "confirmed",
     selectionHref: selectionFormHref,
     clientHref: clientFormHref,
@@ -290,7 +287,7 @@ export function ReservationTunnel({
     isReady,
     readyForPreparation,
     hasSelectedMotorcycle: Boolean(selectedMotorcycle),
-    paymentReady: confirmationSnapshot.state === "pending_validation",
+    paymentReady: readyForPreparation,
     confirmationReady: confirmationSnapshot.state === "confirmed",
     selectionHref: selectionStageHref,
     catalogHref: "/motos",
@@ -335,7 +332,12 @@ export function ReservationTunnel({
 
   useEffect(() => {
     const storedConfirmation = loadReservationConfirmationRecord();
-    if (storedConfirmation) {
+    if (storedConfirmation && storedConfirmation.selectionKey === reservationSelectionKey({
+      motorcycleSlug: initialMotorcycleSlug,
+      pickupDate: initialPickupDate,
+      returnDate: initialReturnDate,
+      pickupMode: initialPickupMode,
+    })) {
       setConfirmationRecord(storedConfirmation);
       if (storedConfirmation.reservationId) {
         setCurrentReservationId(storedConfirmation.reservationId);
@@ -343,7 +345,7 @@ export function ReservationTunnel({
     }
 
     setConfirmationRecordLoaded(true);
-  }, []);
+  }, [initialMotorcycleSlug, initialPickupDate, initialReturnDate, initialPickupMode]);
 
   useEffect(() => {
     if (!clientDraftLoaded || !clientDraftTouched) {
@@ -362,23 +364,38 @@ export function ReservationTunnel({
   }, [confirmationRecordLoaded, resolvedConfirmationRecord]);
 
   useEffect(() => {
-    if (!currentReservationId) {
-      return;
+    if (!currentReservationId || !confirmationRecordLoaded) return;
+    const controller = new AbortController();
+    let active = true;
+    let inFlight = false;
+    async function refreshPrivateReceipt() {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const response = await fetch("/api/reservations", {
+          cache: "no-store",
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
+        const payload = await response.json() as { ok?: boolean; reservation?: PlanningReservationRecord };
+        if (!active) return;
+        if (response.ok && payload.ok && payload.reservation?.id === currentReservationId) {
+          setVerifiedReservation(payload.reservation);
+          setPlanningReservations((current) => upsertPlanningReservation(current, payload.reservation!));
+        } else {
+          setVerifiedReservation(null);
+          setPlanningFeedback("Suivi non accessible dans ce navigateur. Contactez Allo Moto avec votre référence.");
+        }
+      } catch {
+        if (active) setPlanningFeedback("Actualisation du suivi indisponible. Réessayez ou contactez Allo Moto.");
+      } finally {
+        inFlight = false;
+      }
     }
-
-    const currentReservation = findPlanningReservation(
-      planningReservations,
-      currentReservationId,
-    );
-
-    if (
-      !currentReservation ||
-      currentReservation.reservationStatus === "cancelled" ||
-      currentReservation.paymentStatus === "expired"
-    ) {
-      setCurrentReservationId(null);
-    }
-  }, [currentReservationId, planningReservations]);
+    void refreshPrivateReceipt();
+    const timer = window.setInterval(() => void refreshPrivateReceipt(), 30_000);
+    return () => { active = false; controller.abort(); window.clearInterval(timer); };
+  }, [currentReservationId, confirmationRecordLoaded, setPlanningReservations]);
 
   useEffect(() => {
     setLiveNotice(
@@ -424,6 +441,7 @@ export function ReservationTunnel({
   }, [invalidRequestedMotorcycleSlug]);
 
   function clearCurrentReservationContext() {
+    setVerifiedReservation(null);
     if (currentReservationId) {
       setCurrentReservationId(null);
     }
@@ -541,6 +559,8 @@ export function ReservationTunnel({
       }
 
       const pendingReservation = payload.reservation;
+      setVerifiedReservation(pendingReservation);
+      saveReservationClientDraft(null);
 
       setPlanningReservations((current) =>
         upsertPlanningReservation(current, pendingReservation),
@@ -560,6 +580,7 @@ export function ReservationTunnel({
       setHasChecked(true);
       setShowPreparation(false);
       setViewStage("confirmed");
+      window.history.replaceState(null, "", buildStageHref("confirmed"));
     } catch {
       setSubmitError(
         "La demande n'a pas pu être envoyée. Réessayez dans un instant.",
@@ -628,7 +649,7 @@ export function ReservationTunnel({
     resetValidation();
     setPlanningFeedback(
       hadHold
-        ? "Créneau mis à jour. La demande précédente a été libérée."
+        ? "Créneau mis à jour. La demande précédente reste enregistrée ; contactez Allo Moto pour la modifier."
         : "Créneau mis à jour. Vérifiez la disponibilité.",
     );
     closePlanningModal();

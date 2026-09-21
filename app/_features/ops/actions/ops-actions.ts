@@ -69,7 +69,8 @@ function appendErrorToReturnPath(pathname: string, error: string) {
 
 export async function loginAdminAction(formData: FormData) {
   const username = readString(formData, "username");
-  const password = readString(formData, "password");
+  const rawPassword = formData.get("password");
+  const password = typeof rawPassword === "string" ? rawPassword : "";
   const ok = await attemptAdminLogin(username, password);
 
   redirect(ok ? "/ops" : "/ops/login?error=invalid");
@@ -94,7 +95,8 @@ export async function updateReservationStatusAction(formData: FormData) {
   if (
     nextStatus !== "confirmed" &&
     nextStatus !== "rejected" &&
-    nextStatus !== "cancelled"
+    nextStatus !== "cancelled" &&
+    nextStatus !== "completed"
   ) {
     if (errorReturnTo.startsWith("/ops/")) {
       redirect(appendErrorToReturnPath(errorReturnTo, "status"));

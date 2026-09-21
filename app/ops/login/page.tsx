@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { loginAdminAction } from "@/app/_features/ops/actions/ops-actions";
-import { isAdminAuthenticated } from "@/app/_features/ops/lib/auth";
+import { isAdminAuthenticated, isAdminConfigured } from "@/app/_features/ops/lib/auth";
 import { Badge } from "@/app/_shared/ui/Badge";
 import { Button } from "@/app/_shared/ui/Button";
 import { Input } from "@/app/_shared/ui/Input";
@@ -23,6 +23,7 @@ export default async function OpsLoginPage({
     redirect("/ops");
   }
 
+  const configured = isAdminConfigured();
   const resolvedSearchParams = await searchParams;
   const error =
     (Array.isArray(resolvedSearchParams?.error)
@@ -44,6 +45,12 @@ export default async function OpsLoginPage({
                 </p>
               </div>
             </div>
+
+            {!configured ? (
+              <p role="alert" className="text-sm text-warning">
+                Accès administrateur indisponible : configuration sécurisée requise.
+              </p>
+            ) : null}
 
             {error === "invalid" ? (
               <div className="border border-warning/20 bg-warning/8 px-4 py-3 text-sm text-foreground/80">
@@ -70,6 +77,7 @@ export default async function OpsLoginPage({
               <Button
                 as="button"
                 type="submit"
+                disabled={!configured}
                 ariaLabel="Se connecter a l'espace admin"
                 variant="accent"
                 size="lg"

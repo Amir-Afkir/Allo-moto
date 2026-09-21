@@ -11,6 +11,7 @@ export type ReservationLifecycleStatus =
   | "return_due"
   | "completed"
   | "cancelled"
+  | "rejected"
   | "blocked_ops";
 
 export type ReservationLedgerPaymentStatus =
@@ -685,6 +686,7 @@ function isReservationBlockingInventory(
   if (
     reservation.reservationStatus === "pending_validation" ||
     reservation.reservationStatus === "cancelled" ||
+    reservation.reservationStatus === "rejected" ||
     reservation.reservationStatus === "completed" ||
     reservation.reservationStatus === "draft"
   ) {

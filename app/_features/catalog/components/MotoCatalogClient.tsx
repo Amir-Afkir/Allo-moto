@@ -26,17 +26,17 @@ import {
 } from "@/app/_features/reservation/data/reservation";
 import { usePlanningLedger } from "@/app/_features/reservation/hooks/usePlanningLedger";
 import type {
-  PlanningAvailabilityBlock,
-  PlanningReservationRecord,
-} from "@/app/_features/reservation/data/reservation-planning";
+  PublicPlanningBlock,
+  PublicPlanningReservation,
+} from "@/app/_features/reservation/data/public-planning";
 import { MotoFilterBar } from "./MotoFilterBar";
 import { MotoRetenueSidebar } from "./MotoRetenueSidebar";
 import { MotorcycleVisual } from "./MotorcycleVisual";
 
 type MotoCatalogClientProps = {
   motorcycles: readonly CatalogMotorcycle[];
-  initialPlanningReservations: ReadonlyArray<PlanningReservationRecord>;
-  initialPlanningBlocks: ReadonlyArray<PlanningAvailabilityBlock>;
+  initialPlanningReservations: ReadonlyArray<PublicPlanningReservation>;
+  initialPlanningBlocks: ReadonlyArray<PublicPlanningBlock>;
 };
 
 const DEFAULT_WINDOW = createDefaultReservationWindow();

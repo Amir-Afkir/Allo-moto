@@ -115,6 +115,11 @@ export function getReservationTone(status: OpsReservationStatus) {
   switch (status) {
     case "confirmed":
       return "success";
+    case "rejected":
+      return "danger";
+    case "cancelled":
+    case "completed":
+      return "outline";
     case "pending":
     default:
       return "warning";
@@ -127,6 +132,12 @@ export function getReservationLabel(status: OpsReservationStatus) {
       return "Demande";
     case "confirmed":
       return "Confirmee";
+    case "rejected":
+      return "Refusee";
+    case "cancelled":
+      return "Annulee";
+    case "completed":
+      return "Terminee";
   }
 }
 
@@ -170,6 +181,16 @@ export function OpsReservationActionBar({
         {status === "confirmed" ? (
           <StatusForm
             reservationId={reservationId}
+            nextStatus="completed"
+            label="Enregistrer le retour"
+            variant="accent"
+            successReturnTo={successReturnTo}
+            errorReturnTo={errorReturnTo}
+          />
+        ) : null}
+        {status === "confirmed" ? (
+          <StatusForm
+            reservationId={reservationId}
             nextStatus="cancelled"
             label="Annuler"
             variant="outline"
@@ -180,7 +201,7 @@ export function OpsReservationActionBar({
       </div>
       {status === "confirmed" ? (
         <p className="mt-4 text-sm text-muted-foreground">
-          Si vous annulez, la demande est supprimee et la moto redevient disponible.
+          Une annulation ou un retour libère la moto et conserve le dossier dans l’historique.
         </p>
       ) : null}
     </div>
@@ -234,7 +255,7 @@ function StatusForm({
   errorReturnTo,
 }: {
   reservationId: string;
-  nextStatus: "confirmed" | "rejected" | "cancelled";
+  nextStatus: "confirmed" | "rejected" | "cancelled" | "completed";
   label: string;
   variant: "accent" | "outline";
   successReturnTo?: string;
