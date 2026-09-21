@@ -33,8 +33,10 @@ Base : main `7e08deb807e4cc2b41a0c8f8c86f773dbb6b5709`.
 `npm run typecheck`, `npm audit --audit-level=moderate`.
 
 La CI ajoute Playwright, Chromium desktop et WebKit avec viewport/tactile iPhone simulés.
-Les scénarios utilisent le vrai serveur Next en développement, ses actions/API et une base
-PostgreSQL jetable, jamais une API de réservation simulée. Le build de production est vérifié
+Les scénarios utilisent le vrai serveur Next en développement avec Webpack, ses actions/API
+et une base PostgreSQL jetable, jamais une API de réservation simulée. Le transport HMR
+Turbopack a produit une erreur de chargement propre à WebKit pendant ces essais ; il ne fait
+pas partie du périmètre de cette suite métier. Les erreurs JavaScript ne sont pas filtrées. Le build de production est vérifié
 séparément par `npm run test:production` : vrai build puis `next start`, avec des dossiers
 personnels fictifs dans un snapshot jetable. Les réponses HTML/RSC du public sont vérifiées
 sans se limiter au DOM visible. Le contrôle est réservé au checkout GitHub Actions ; il

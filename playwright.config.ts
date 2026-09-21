@@ -28,7 +28,8 @@ export default defineConfig({
     { name: "mobile-webkit", use: { ...devices["iPhone 13"] } },
   ],
   webServer: {
-    command: "npm run dev -- --hostname 127.0.0.1 --port 3100",
+    // Use the stable dev bundler for interaction tests, not Turbopack's WebKit HMR transport.
+    command: "node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 3100",
     url: "http://127.0.0.1:3100/ops/login",
     reuseExistingServer: false,
     timeout: 120_000,
@@ -38,7 +39,7 @@ export default defineConfig({
       ADMIN_PASSWORD: "Quality-browser-only-57!",
       ADMIN_SESSION_SECRET: randomBytes(32).toString("hex"),
       CLOUDINARY_CLOUD_NAME: "", CLOUDINARY_API_KEY: "", CLOUDINARY_API_SECRET: "",
-      NEXT_PUBLIC_MAPBOX_TOKEN: "",
+      NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: "",
       NEXT_TELEMETRY_DISABLED: "1",
     },
   },

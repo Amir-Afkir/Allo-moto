@@ -39,7 +39,7 @@ async function main() {
   const env = { ...process.env, NODE_ENV: 'production', DATABASE_URL: '',
     ADMIN_USERNAME: '', ADMIN_PASSWORD: '', ADMIN_SESSION_SECRET: '',
     CLOUDINARY_CLOUD_NAME: '', CLOUDINARY_API_KEY: '', CLOUDINARY_API_SECRET: '',
-    NEXT_PUBLIC_MAPBOX_TOKEN: '', NEXT_TELEMETRY_DISABLED: '1' };
+    NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: '', NEXT_TELEMETRY_DISABLED: '1' };
   const next = require.resolve('next/dist/bin/next');
   let server;
   try {
