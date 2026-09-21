@@ -2,7 +2,7 @@ name: Quality
 
 on:
   push:
-    branches: [main, chatgpt/security-data-pass-1]
+    branches: [main, chatgpt/security-data-pass-1, chatgpt/reservation-pass-2]
   pull_request:
     branches: [main]
 

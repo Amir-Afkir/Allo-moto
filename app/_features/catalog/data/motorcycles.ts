@@ -14,6 +14,8 @@ export type CatalogSortKey = "recommended" | "price-asc" | "price-desc" | "avail
 export type CatalogPriceBand = "all" | "entry" | "mid" | "premium";
 
 export interface CatalogMotorcycle extends Motorcycle {
+  /** Publication/operations state, independent of today's occupied badge. */
+  bookingStatus?: "active" | "maintenance" | "inactive" | "blocked";
   monogram: string;
   heroTag: string;
   editorialNote: string;

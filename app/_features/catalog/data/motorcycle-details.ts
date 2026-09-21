@@ -1,4 +1,4 @@
-import type { MotoVisualTone } from "./motorcycles";
+import type { CatalogMotorcycle, MotoVisualTone } from "./motorcycles";
 
 export interface MotorcycleGalleryPanel {
   eyebrow: string;
@@ -16,7 +16,7 @@ export interface MotorcycleDetailContent {
   notIncluded: readonly string[];
   prepare: readonly string[];
   reassurance: readonly string[];
-  relatedSlugs: readonly [string, string, string];
+  relatedSlugs: readonly string[];
 }
 
 const CORE_INCLUDED = [
@@ -417,6 +417,20 @@ export const MOTORCYCLE_DETAIL_CONTENT: Record<string, MotorcycleDetailContent> 
   },
 };
 
-export function getMotorcycleDetailContent(slug: string): MotorcycleDetailContent | null {
-  return MOTORCYCLE_DETAIL_CONTENT[slug] ?? null;
+export function getMotorcycleDetailContent(slug: string, motorcycle?: CatalogMotorcycle): MotorcycleDetailContent | null {
+  const editorial = MOTORCYCLE_DETAIL_CONTENT[slug];
+  if (editorial) return editorial;
+  if (!motorcycle || motorcycle.slug !== slug) return null;
+  // An admin-created vehicle must not require a source-code entry to have a public page.
+  return {
+    summary: motorcycle.description,
+    whyPoints: [motorcycle.editorialNote, `Retrait : ${motorcycle.locationLabel}`, `Permis ${motorcycle.licenseCategory} requis.`],
+    galleryPanels: panels(
+      { eyebrow: "Modèle", title: `${motorcycle.brand} ${motorcycle.name}`, copy: motorcycle.description, metric: motorcycle.category, tone: motorcycle.visualTone },
+      { eyebrow: "Location", title: "Tarif journalier", copy: "Le montant total dépend des jours sélectionnés.", metric: `${motorcycle.priceFrom.amount} ${motorcycle.priceFrom.currency}/jour`, tone: motorcycle.visualTone },
+      { eyebrow: "Retrait", title: motorcycle.locationLabel, copy: "Créneau soumis à confirmation de l’équipe.", metric: `Permis ${motorcycle.licenseCategory}`, tone: motorcycle.visualTone },
+    ),
+    included: CORE_INCLUDED, notIncluded: CORE_NOT_INCLUDED, prepare: CORE_PREPARE,
+    reassurance: CORE_REASSURANCE, relatedSlugs: [],
+  };
 }

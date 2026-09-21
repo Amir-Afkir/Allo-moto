@@ -129,3 +129,67 @@ test('production reuses one database pool rather than allocating one per read', 
     for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
   }
 });
+
+test('idempotent local requests serialize: retries create one record and changing payload conflicts', async () => fixture(async ({ store, input, file }) => {
+  const { randomUUID } = require('node:crypto'); const key = randomUUID();
+  const results = await Promise.all(Array.from({length: 8}, () => store.createReservationRequest({...input, idempotencyKey: key})));
+  assert.equal(new Set(results.map((r) => r.reservation.id)).size, 1);
+  const id = results[0].reservation.id;
+  assert.equal((await store.listAdminReservations()).length, 1);
+  await assert.rejects(store.createReservationRequest({...input, clientDraft: {...input.clientDraft, firstName:'Other'}, idempotencyKey: key}), (error) => error.status === 409);
+  await store.updateReservationStatus({ reservationId: id, nextStatus: 'confirmed' });
+  assert.equal((await store.createReservationRequest({...input, idempotencyKey: key.toUpperCase()})).reservation.status, 'confirmed');
+  await store.updateReservationStatus({ reservationId: id, nextStatus: 'cancelled' });
+  assert.equal((await store.createReservationRequest({...input, idempotencyKey:key})).reservation.id, id);
+  assert.equal((await store.listAdminReservations()).length, 1);
+  assert.ok(!fs.readFileSync(file,'utf8').includes(key));
+  assert.ok(!JSON.stringify(await store.getReservationPageData()).includes('idempotencyKeyHash'));
+  assert.notEqual((await store.createReservationRequest({...input, idempotencyKey:randomUUID()})).reservation.id, id);
+}));
+
+test('failed validation leaves the retry key unused and past departures cannot be persisted', async () => fixture(async ({ store, input }) => {
+  const { randomUUID } = require('node:crypto'); const key = randomUUID();
+  await assert.rejects(store.createReservationRequest({...input, draft:{...input.draft, pickupDate:'2000-01-01'}, idempotencyKey: key}), /passé/);
+  assert.equal((await store.listAdminReservations()).length, 0);
+  assert.ok((await store.createReservationRequest({...input, idempotencyKey:key})).reservation.id);
+}));
+
+test('a currently rented vehicle accepts a nonoverlapping future request, but an overdue return does not', async () => fixture(async ({ store, input, file }) => {
+  const first = await store.createReservationRequest(input);
+  await store.updateReservationStatus({reservationId:first.reservation.id,nextStatus:'confirmed'});
+  const snapshot = JSON.parse(fs.readFileSync(file,'utf8'));
+  const record = snapshot.reservations.find((r) => r.id === first.reservation.id);
+  record.pickupAt = new Date(Date.now()-3_600_000).toISOString();
+  record.returnAt = new Date(Date.now()+3_600_000).toISOString();
+  for (const block of snapshot.vehicleBlocks.filter((b) => b.reservationId===record.id)) {block.startAt=record.pickupAt;block.endAt=record.returnAt;}
+  fs.writeFileSync(file,JSON.stringify(snapshot));
+  const motorcycle = await store.getPublicMotorcycleBySlug('audit-bike',new Date());
+  assert.equal(motorcycle.status,'reserved'); assert.equal(motorcycle.bookingStatus,'active');
+  const second = await store.createReservationRequest(input);
+  assert.notEqual(first.reservation.id, second.reservation.id);
+  const next = JSON.parse(fs.readFileSync(file,'utf8'));
+  next.reservations.find((r) => r.id===record.id).returnAt=new Date(Date.now()-1000).toISOString();
+  fs.writeFileSync(file,JSON.stringify(next));
+  await assert.rejects(store.createReservationRequest(input), /retour/);
+}));
+
+test('manual maintenance validates type/dates and cannot contradict a confirmed rental', async () => fixture(async ({ store, input }) => {
+  const block = {vehicleSlug:'audit-bike',type:'maintenance',startDate:input.draft.pickupDate,endDate:input.draft.returnDate,note:'TEST'};
+  for (const invalid of [{type:'reservation'},{startDate:'2090-02-30'},{endDate:'2090-06-09'}]) {
+    await assert.rejects(store.addVehicleBlock({...block,...invalid}), /invalide/);
+  }
+  const first = await store.createReservationRequest(input);
+  await store.updateReservationStatus({reservationId:first.reservation.id,nextStatus:'confirmed'});
+  await assert.rejects(store.addVehicleBlock(block), /confirmée/);
+  await store.addVehicleBlock({...block,startDate:'2091-01-01',endDate:'2091-01-02'});
+  assert.equal((await store.getAdminReservationById(first.reservation.id)).reservation.status, 'confirmed');
+}));
+
+test('new stored timestamps and prices match the public service-window calculation', async () => fixture(async ({ store, input, loader }) => {
+  const time = loader.load('app/_features/reservation/data/rental-time.ts');
+  const result = await store.createReservationRequest(input);
+  assert.equal(result.reservation.pickupAt, time.buildRentalWindow(input.draft).pickupAt);
+  assert.equal(result.reservation.returnAt, time.buildRentalWindow(input.draft).returnAt);
+  assert.equal(result.reservation.estimatedTotal, 150);
+  assert.equal(result.reservation.totalDays, 3);
+}));

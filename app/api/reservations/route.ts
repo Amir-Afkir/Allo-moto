@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createReservationRequest } from "@/app/_features/ops/data/ops-store";
 import { getPrivateReservationReceipt, RECEIPT_COOKIE, toPrivateReservationReceipt } from "@/app/_features/ops/data/reservation-receipt";
 import { createAccessToken, getSessionSecret, SESSION_MAX_AGE_SECONDS } from "@/app/_features/ops/lib/session-security";
-import { parseReservationRequest, readReservationRequest, RequestBodyError, ReservationInputError } from "@/app/_features/reservation/data/reservation-request";
+import { parseIdempotencyKey, parseReservationRequest, readReservationRequest, RequestBodyError, ReservationInputError } from "@/app/_features/reservation/data/reservation-request";
 
 export const dynamic = "force-dynamic";
 const PRIVATE_HEADERS = { "Cache-Control": "private, no-store, max-age=0", Vary: "Cookie" };
@@ -30,7 +30,8 @@ export async function POST(request: NextRequest) {
     if (!secret) {
       return NextResponse.json({ ok: false, message: "Les demandes sont temporairement indisponibles." }, { status: 503, headers: PRIVATE_HEADERS });
     }
-    const result = await createReservationRequest(input);
+    const idempotencyKey = parseIdempotencyKey(request.headers.get("idempotency-key"));
+    const result = await createReservationRequest({ ...input, idempotencyKey });
     const response = NextResponse.json({
       ok: true,
       reservation: toPrivateReservationReceipt(result.reservation),

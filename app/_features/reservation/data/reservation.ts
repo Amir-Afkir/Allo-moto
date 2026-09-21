@@ -6,6 +6,8 @@ import {
   type ReservationAvailability,
 } from "./reservation-planning";
 
+import { addCalendarDays, parseDateKey, rentalDateKey, rentalDurationDays, type RentalWindow } from "./rental-time";
+
 export type ReservationStage = "selection" | "client" | "payment" | "confirmed";
 export type ReservationPickupMode = "motorcycle-location" | "delivery";
 export type PermitSelection = "none" | "B" | "A1" | "A2" | "A";
@@ -25,16 +27,9 @@ export const PICKUP_MODE_OPTIONS: ReadonlyArray<{ value: ReservationPickupMode; 
   { value: "delivery", label: "Livraison" },
 ];
 
-const MILLIS_PER_DAY = 24 * 60 * 60 * 1000;
-
-export function createDefaultReservationWindow(): { pickupDate: string; returnDate: string } {
-  const now = new Date();
-  const pickup = addDays(now, 1);
-  const returnDate = addDays(now, 3);
-  return {
-    pickupDate: formatDateInputValue(pickup),
-    returnDate: formatDateInputValue(returnDate),
-  };
+export function createDefaultReservationWindow(now: Date = new Date()): { pickupDate: string; returnDate: string } {
+  const today = rentalDateKey(now);
+  return { pickupDate: addCalendarDays(today, 1), returnDate: addCalendarDays(today, 3) };
 }
 
 export function parseReservationPickupMode(value: string | undefined): ReservationPickupMode {
@@ -48,36 +43,24 @@ export function parsePermitSelection(value: string | undefined): PermitSelection
   return "none";
 }
 
-export function formatDateInputValue(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+export function formatDateInputValue(date: Date): string { return rentalDateKey(date); }
 
 export function formatDateRange(start: string, end: string): string {
   if (!start || !end) {
     return "À préciser";
   }
 
-  const startDate = parseDate(start);
-  const endDate = parseDate(end);
+  const startDate = parseDateKey(start);
+  const endDate = parseDateKey(end);
   if (!startDate || !endDate) {
     return "À préciser";
   }
 
-  return `${new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(startDate)} → ${new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" }).format(endDate)}`;
+  return `${new Intl.DateTimeFormat("fr-FR", { timeZone: "UTC", day: "numeric", month: "short" }).format(startDate)} → ${new Intl.DateTimeFormat("fr-FR", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" }).format(endDate)}`;
 }
 
 export function calculateReservationDuration(pickupDate: string, returnDate: string): number {
-  const pickup = parseDate(pickupDate);
-  const returnDay = parseDate(returnDate);
-  if (!pickup || !returnDay) {
-    return 0;
-  }
-
-  const diff = Math.round((startOfDay(returnDay).getTime() - startOfDay(pickup).getTime()) / MILLIS_PER_DAY);
-  return diff >= 0 ? diff + 1 : 0;
+  return rentalDurationDays(pickupDate, returnDate);
 }
 
 export function buildReservationSearchParams({
@@ -119,12 +102,16 @@ export function evaluateReservation({
   planningReservations = [],
   planningBlocks = [],
   ignoreReservationId,
+  now,
+  storedWindow,
 }: {
   motorcycle: CatalogMotorcycle | null;
   draft: ReservationDraft;
   planningReservations?: ReadonlyArray<PlanningReservationRecord>;
   planningBlocks?: ReadonlyArray<PlanningAvailabilityBlock>;
   ignoreReservationId?: string | null;
+  now?: Date;
+  storedWindow?: RentalWindow;
 }): ReservationEvaluation {
   return evaluatePlanningAvailability({
     motorcycle,
@@ -132,24 +119,7 @@ export function evaluateReservation({
     reservations: planningReservations,
     blocks: planningBlocks,
     ignoreReservationId,
+    now,
+    storedWindow,
   });
-}
-
-function parseDate(value: string): Date | null {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = new Date(`${value}T00:00:00`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function addDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
 }

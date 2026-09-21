@@ -62,7 +62,7 @@ export default async function MotoDetailPage({ params }: MotoDetailPageProps) {
   const { slug } = await params;
   const { motorcycle, catalog, planning } =
     await getPublicMotorcycleDetailPageData(slug);
-  const content = motorcycle ? getMotorcycleDetailContent(slug) : null;
+  const content = motorcycle ? getMotorcycleDetailContent(slug, motorcycle) : null;
 
   if (!motorcycle) {
     notFound();

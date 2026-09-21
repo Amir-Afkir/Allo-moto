@@ -1,3 +1,4 @@
+import { parseDateKey } from "./rental-time";
 import type { ReservationDraft } from "./reservation";
 import type { ReservationClientDraft } from "./reservation-intake";
 
@@ -30,12 +31,15 @@ function choice<T extends string>(value: unknown, options: readonly T[]): T {
 }
 
 function date(value: string): string {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new ReservationInputError("Date invalide.");
-  const parsed = new Date(`${value}T00:00:00Z`);
-  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
-    throw new ReservationInputError("Date invalide.");
-  }
+  if (!parseDateKey(value)) throw new ReservationInputError("Date invalide.");
   return value;
+}
+
+export function parseIdempotencyKey(value: unknown): string {
+  if (typeof value !== "string" || !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value)) {
+    throw new RequestBodyError("Tentative invalide. Actualisez la page avant de réessayer.", 400);
+  }
+  return value.toLowerCase();
 }
 
 export function parseReservationRequest(value: unknown): { draft: ReservationDraft; clientDraft: ReservationClientDraft } {
