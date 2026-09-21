@@ -193,3 +193,17 @@ test('new stored timestamps and prices match the public service-window calculati
   assert.equal(result.reservation.estimatedTotal, 150);
   assert.equal(result.reservation.totalDays, 3);
 }));
+
+test('unreadable or corrupt local storage is preserved, never silently replaced with seed data', async () => fixture(async ({store,file}) => {
+  for (const contents of ['{broken', JSON.stringify({version:999,vehicles:[],reservations:[],vehicleBlocks:[]})]) {
+    fs.writeFileSync(file,contents);
+    await assert.rejects(store.getPublicCatalog(new Date()));
+    assert.equal(fs.readFileSync(file,'utf8'),contents);
+  }
+}));
+
+test('invalid fleet values cannot corrupt persistent public categories or prices', async () => fixture(async ({store,file}) => {
+  const original = fs.readFileSync(file,'utf8');
+  await assert.rejects(store.saveVehicle({currentSlug:'audit-bike',values:{brand:'Audit',name:'Invalid',category:'unknown'}}));
+  assert.equal(fs.readFileSync(file,'utf8'),original);
+}));

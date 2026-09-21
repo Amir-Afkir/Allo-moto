@@ -1,9 +1,12 @@
+import "server-only";
+import sharp from "sharp";
+import { MAX_VEHICLE_IMAGE_BYTES, MAX_VEHICLE_IMAGE_PIXELS, vehicleImageError } from "./image-policy";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const FLEET_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "fleet");
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
 
 type CloudinaryConfig = {
   cloudName: string;
@@ -21,17 +24,22 @@ export async function uploadVehicleImage(input: {
   file: File;
   slugHint?: string;
 }): Promise<UploadedVehicleImage> {
-  assertUploadConstraints(input.file);
+  const error = vehicleImageError(input.file);
+  if (error) throw new Error(error);
+  if (process.env.NODE_ENV === "production" && !hasCloudinaryConfig()) {
+    throw new Error("Object storage is not configured.");
+  }
+  const normalized = { ...input, file: await normalizeVehicleImage(input.file) };
 
   if (hasCloudinaryConfig()) {
-    return uploadVehicleImageToCloudinary(input);
+    return uploadVehicleImageToCloudinary(normalized);
   }
 
   if (process.env.NODE_ENV === "production") {
     throw new Error("Object storage is not configured.");
   }
 
-  return uploadVehicleImageLocally(input);
+  return uploadVehicleImageLocally(normalized);
 }
 
 export async function deleteVehicleImageAsset(input: {
@@ -54,13 +62,28 @@ export async function deleteVehicleImageAsset(input: {
   await removeVehicleImageLocally(input);
 }
 
-function assertUploadConstraints(file: File) {
-  if (!file.type.startsWith("image/")) {
-    throw new Error("Only image uploads are supported.");
-  }
-
-  if (file.size > MAX_UPLOAD_BYTES) {
-    throw new Error("Image upload exceeds the 10 MB limit.");
+/** Decode actual bytes, strip metadata, rotate EXIF orientation and persist only safe WebP. */
+export async function normalizeVehicleImage(file: File): Promise<File> {
+  const error = vehicleImageError(file);
+  if (error) throw new Error(error);
+  try {
+    const image = sharp(Buffer.from(await file.arrayBuffer()), {
+      failOn: "warning", limitInputPixels: MAX_VEHICLE_IMAGE_PIXELS,
+    });
+    const metadata = await image.metadata();
+    if (!metadata.width || !metadata.height ||
+        metadata.width * metadata.height > MAX_VEHICLE_IMAGE_PIXELS ||
+        (metadata.pages ?? 1) > 1 ||
+        !["jpeg", "png", "webp", "heif", "avif"].includes(metadata.format ?? "")) {
+      throw new Error("Unsupported image.");
+    }
+    const bytes = await image.rotate()
+      .resize({ width: 2400, height: 2400, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 85 }).toBuffer();
+    if (bytes.length > MAX_VEHICLE_IMAGE_BYTES) throw new Error("Image too large.");
+    return new File([new Uint8Array(bytes)], "vehicle.webp", { type: "image/webp" });
+  } catch {
+    throw new Error("Image illisible, animée ou trop grande. Utilisez une photo de 40 mégapixels maximum.");
   }
 }
 
@@ -90,6 +113,7 @@ async function uploadVehicleImageToCloudinary(input: {
   const response = await fetch(buildCloudinaryUploadUrl(config.cloudName), {
     method: "POST",
     body: formData,
+    signal: AbortSignal.timeout(15_000),
   });
 
   const payload = (await response.json().catch(() => null)) as
@@ -99,10 +123,15 @@ async function uploadVehicleImageToCloudinary(input: {
       }
     | null;
 
-  if (!response.ok || !payload?.secure_url) {
+  if (!response.ok || !payload?.secure_url || payload.public_id !== publicId) {
     throw new Error("Cloudinary upload failed.");
   }
 
+  const uploadedUrl = new URL(payload.secure_url);
+  if (uploadedUrl.protocol !== "https:" || uploadedUrl.hostname !== "res.cloudinary.com" ||
+      !uploadedUrl.pathname.startsWith(`/${config.cloudName}/image/upload/`)) {
+    throw new Error("Unexpected image storage response.");
+  }
   return {
     src: payload.secure_url,
     publicId: payload.public_id ?? publicId,
@@ -137,6 +166,7 @@ async function removeCloudinaryImage(input: {
   const response = await fetch(buildCloudinaryDestroyUrl(config.cloudName), {
     method: "POST",
     body: formData,
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!response.ok) {
@@ -274,23 +304,12 @@ function resolveCurrentImagePath(src: string | undefined) {
 }
 
 export function resolveImageExtension(file: File) {
-  const explicit = path.extname(file.name).toLowerCase();
-  if (explicit) {
-    return explicit;
-  }
-
-  switch (file.type) {
-    case "image/png":
-      return ".png";
-    case "image/webp":
-      return ".webp";
-    case "image/avif":
-      return ".avif";
-    case "image/gif":
-      return ".gif";
-    default:
-      return ".jpg";
-  }
+  const extensions: Record<string, string> = {
+    "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/avif": ".avif",
+  };
+  const extension = extensions[file.type];
+  if (!extension) throw new Error("Unsupported image type.");
+  return extension;
 }
 
 export function normalizeUploadSegment(value: string) {
