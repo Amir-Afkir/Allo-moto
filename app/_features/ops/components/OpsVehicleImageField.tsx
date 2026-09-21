@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+
+import { VEHICLE_IMAGE_ACCEPT, vehicleImageError } from "../lib/image-policy";
 
 type ImageState = "keep" | "replace" | "remove";
 
@@ -12,6 +14,7 @@ export function OpsVehicleImageField({
   initialValue: string;
   vehicleLabel: string;
 }) {
+  const inputId = useId();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [imageState, setImageState] = useState<ImageState>("keep");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -27,10 +30,6 @@ export function OpsVehicleImageField({
   }, [previewUrl]);
 
   function clearPendingSelection() {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-
     setPreviewUrl(null);
     setPendingFileName("");
     setError(null);
@@ -46,13 +45,16 @@ export function OpsVehicleImageField({
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      setError("Selectionnez uniquement une image.");
-      event.target.value = "";
+    const validationError = vehicleImageError(file);
+    if (validationError) {
+      clearPendingSelection();
+      setImageState("keep");
+      setError(validationError);
       return;
     }
 
-    clearPendingSelection();
+    // Keep input.files intact: resetting the input here silently removes the upload.
+    setError(null);
     setPreviewUrl(URL.createObjectURL(file));
     setPendingFileName(file.name);
     setImageState("replace");
@@ -98,9 +100,12 @@ export function OpsVehicleImageField({
 
       <input
         ref={inputRef}
+        id={inputId}
+        aria-label="Image principale du véhicule"
+        aria-describedby={`${inputId}-help`}
         type="file"
         name="primaryImageFile"
-        accept="image/*"
+        accept={VEHICLE_IMAGE_ACCEPT}
         className="hidden"
         onChange={handleFileChange}
       />
@@ -109,7 +114,7 @@ export function OpsVehicleImageField({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="rounded-pill border border-border/60 bg-surface/72 px-4 py-2 text-sm font-semibold text-foreground/74 transition-colors hover:bg-surface hover:text-foreground"
+          className="min-h-11 rounded-pill border border-border/60 bg-surface/72 px-4 py-2 text-sm font-semibold text-foreground/74 transition-colors hover:bg-surface hover:text-foreground"
         >
           {hasPreview || initialValue
             ? "Changer l'image"
@@ -120,7 +125,7 @@ export function OpsVehicleImageField({
           <button
             type="button"
             onClick={handleRemoveOrReset}
-            className="rounded-pill border border-border/60 bg-surface/72 px-4 py-2 text-sm font-semibold text-foreground/74 transition-colors hover:bg-surface hover:text-foreground"
+            className="min-h-11 rounded-pill border border-border/60 bg-surface/72 px-4 py-2 text-sm font-semibold text-foreground/74 transition-colors hover:bg-surface hover:text-foreground"
           >
             Supprimer l&apos;image
           </button>
@@ -130,7 +135,7 @@ export function OpsVehicleImageField({
           <button
             type="button"
             onClick={handleRemoveOrReset}
-            className="rounded-pill border border-border/60 bg-surface/72 px-4 py-2 text-sm font-semibold text-foreground/74 transition-colors hover:bg-surface hover:text-foreground"
+            className="min-h-11 rounded-pill border border-border/60 bg-surface/72 px-4 py-2 text-sm font-semibold text-foreground/74 transition-colors hover:bg-surface hover:text-foreground"
           >
             Annuler le changement
           </button>
@@ -147,11 +152,13 @@ export function OpsVehicleImageField({
         </span>
       </div>
 
+      <p id={`${inputId}-help`} className="text-sm text-muted-foreground">JPEG, PNG, WebP ou AVIF · 4 Mo maximum.</p>
+
       {pendingFileName ? (
         <p className="text-sm text-muted-foreground">{pendingFileName}</p>
       ) : null}
 
-      {error ? <p className="text-sm text-error">{error}</p> : null}
+      {error ? <p role="alert" className="text-sm text-error">{error}</p> : null}
 
       {hasPreview ? (
         <div className="space-y-2">

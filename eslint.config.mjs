@@ -13,7 +13,7 @@ const eslintConfig = [
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },
   {
-    ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts"],
+    ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "test-results/**", "playwright-report/**"],
   },
 ];
 

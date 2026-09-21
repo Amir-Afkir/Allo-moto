@@ -1,4 +1,5 @@
 import "server-only";
+import { validateVehicleValues } from "../lib/vehicle-validation";
 
 import { mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
 import path from "node:path";
@@ -748,10 +749,12 @@ export async function saveVehicle(input: {
   currentSlug?: string | null;
   values: OpsVehicleSaveValues;
 }) {
+  input = { ...input, values: validateVehicleValues(input.values) };
   return updateStore(async (store) => {
     const existingVehicle = input.currentSlug
       ? store.vehicles.find((vehicle) => vehicle.slug === input.currentSlug) ?? null
       : null;
+    if (input.currentSlug && !existingVehicle) throw new Error("Moto introuvable.");
     const nextSlug = normalizeVehicleSlug(
       input.values.slug ?? "",
       existingVehicle?.slug ?? null,
@@ -1262,50 +1265,26 @@ async function readLocalStore(options?: {
 }): Promise<OpsStoreSnapshot> {
   await ensureLocalStoreFile(options);
 
-  try {
-    const raw = await readFile(LOCAL_STORE_PATH, "utf8");
-    const parsed = JSON.parse(raw) as OpsStoreSnapshot;
-
-    if (
-      parsed &&
-      parsed.version === OPS_STORE_VERSION &&
-      Array.isArray(parsed.vehicles) &&
-      Array.isArray(parsed.reservations) &&
-      Array.isArray(parsed.vehicleBlocks)
-    ) {
-      const normalized = normalizeStore(parsed);
-      if (normalized.changed && options?.persistNormalization !== false) {
-        await writeLocalStore(normalized.store);
-      }
-      return normalized.store;
-    }
-  } catch {
-    // Fall back to the bundled seed below.
+  const raw = await readFile(LOCAL_STORE_PATH, "utf8");
+  const parsed: OpsStoreSnapshot = JSON.parse(raw);
+  if (!parsed || parsed.version !== OPS_STORE_VERSION || !Array.isArray(parsed.vehicles) ||
+      !Array.isArray(parsed.reservations) || !Array.isArray(parsed.vehicleBlocks)) {
+    throw new Error("Local store is invalid. Restore a backup; the existing file has been preserved.");
   }
-
-  const seed = createSeedStore();
-  if (options?.persistNormalization !== false) {
-    await writeLocalStore(seed);
+  const normalized = normalizeStore(parsed);
+  if (normalized.changed && options?.persistNormalization !== false) {
+    await writeLocalStore(normalized.store);
   }
-  return seed;
+  return normalized.store;
 }
 
-async function ensureLocalStoreFile(options?: {
-  persistNormalization?: boolean;
-}) {
-  const directory = path.dirname(LOCAL_STORE_PATH);
-
-  if (options?.persistNormalization !== false) {
-    await mkdir(directory, { recursive: true });
-  }
-
+async function ensureLocalStoreFile(options?: { persistNormalization?: boolean }) {
   try {
     await readFile(LOCAL_STORE_PATH, "utf8");
-  } catch {
-    if (options?.persistNormalization === false) {
-      return;
-    }
-
+  } catch (error) {
+    if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) throw error;
+    // A missing bundled store is only expected for a new local development directory.
+    if (options?.persistNormalization === false) throw error;
     await writeLocalStore(createSeedStore());
   }
 }
