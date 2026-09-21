@@ -1,3 +1,4 @@
+import type { ReservationPriceTerms } from "./reservation-pricing";
 import { parseDateKey } from "./rental-time";
 import type { ReservationDraft } from "./reservation";
 import type { ReservationClientDraft } from "./reservation-intake";
@@ -42,7 +43,18 @@ export function parseIdempotencyKey(value: unknown): string {
   return value.toLowerCase();
 }
 
-export function parseReservationRequest(value: unknown): { draft: ReservationDraft; clientDraft: ReservationClientDraft } {
+export function parseExpectedPricing(value: unknown): ReservationPriceTerms {
+  const data = object(value);
+  for (const key of ["dailyPrice", "depositAmount"]) {
+    if (typeof data[key] !== "number" || !Number.isSafeInteger(data[key]) || data[key] < 0 || data[key] > 1_000_000) {
+      throw new ReservationInputError("Montants à vérifier. Actualisez le récapitulatif avant l’envoi.");
+    }
+  }
+  if (data.currency !== "EUR") throw new ReservationInputError("Devise invalide.");
+  return { dailyPrice: data.dailyPrice as number, depositAmount: data.depositAmount as number, currency: "EUR" };
+}
+
+export function parseReservationRequest(value: unknown): { draft: ReservationDraft; clientDraft: ReservationClientDraft; expectedPricing: ReservationPriceTerms } {
   const input = object(value);
   const draft = object(input.draft);
   const client = object(input.clientDraft);
@@ -51,6 +63,7 @@ export function parseReservationRequest(value: unknown): { draft: ReservationDra
   const returnDate = date(text(draft, "returnDate", 10));
   if (returnDate < pickupDate) throw new ReservationInputError("Le retour doit suivre le départ.");
   return {
+    expectedPricing: parseExpectedPricing(input.expectedPricing),
     draft: {
       motorcycleSlug: text(draft, "motorcycleSlug", 150),
       pickupDate,

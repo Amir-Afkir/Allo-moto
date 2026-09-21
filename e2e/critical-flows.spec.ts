@@ -57,8 +57,8 @@ test("admin upload preserves selected file, rejects oversize, and saves a real >
   const sql = database();
   try {
     const [vehicle] = await sql`select slug, primary_image from ops_vehicles where name = ${name}`;
-    expect(vehicle.primary_image).toMatch(/^\/uploads\/fleet\/.+\.webp$/);
-    const image = await page.request.get(vehicle.primary_image);
+    expect(vehicle.primary_image).toMatch(/^https:\/\/res.cloudinary.com\/quality-fixture\/image\/upload\/v1\/.+\.webp$/);
+    const image = await page.request.get(`/_next/image?url=${encodeURIComponent(vehicle.primary_image)}&w=640&q=75`, { headers: { Accept: "image/webp" } });
     expect(image.status()).toBe(200);
     const metadata = await sharp(await image.body()).metadata();
     expect(metadata.format).toBe("webp");
@@ -89,10 +89,10 @@ test("reservation UI persists once, private follow-up reflects admin confirmatio
   await page.reload();
   await expect(page.locator("#confirmation")).toContainText("Votre demande a bien été envoyée.");
 
-  const adminContext = await browser.newContext();
+  const adminContext = await browser.newContext({ ignoreHTTPSErrors: true });
   const admin = await adminContext.newPage();
   // New contexts do not inherit baseURL; use the same local app explicitly.
-  await admin.goto("http://127.0.0.1:3100/ops/login");
+  await admin.goto("https://localhost:3100/ops/login");
   await admin.getByLabel("Identifiant", { exact: true }).fill("quality-browser-admin");
   await admin.getByLabel("Mot de passe", { exact: true }).fill("Quality-browser-only-57!");
   await admin.getByRole("button", { name: "Se connecter a l'espace admin" }).click();
@@ -101,17 +101,18 @@ test("reservation UI persists once, private follow-up reflects admin confirmatio
   try {
     const records = await sql`select id from ops_reservations where reference = ${payload.reservation.reference}`;
     expect(records).toHaveLength(1);
-    await admin.goto(`http://127.0.0.1:3100/ops/reservations?open=${records[0].id}`);
+    await admin.goto(`https://localhost:3100/ops/reservations?open=${records[0].id}`);
     await admin.getByRole("dialog").getByRole("button", { name: "Confirmer", exact: true }).click();
     // Processing a request intentionally closes the drawer and returns to the inbox.
-    await expect(admin).toHaveURL("http://127.0.0.1:3100/ops/reservations");
+    await expect(admin).toHaveURL("https://localhost:3100/ops/reservations");
     await expect.poll(async () => (await sql`select status from ops_reservations where id = ${records[0].id}`)[0].status).toBe("confirmed");
-    await admin.goto(`http://127.0.0.1:3100/ops/reservations?open=${records[0].id}`);
+    await admin.goto(`https://localhost:3100/ops/reservations?open=${records[0].id}`);
     await expect(admin.getByRole("dialog").getByRole("button", { name: "Annuler", exact: true })).toBeVisible();
     await page.reload();
     await expect(page.locator("#confirmation")).toContainText("Votre réservation est confirmée.");
-    // Raw HTML/RSC privacy is asserted against next start in production-smoke.cjs.
-    // next dev intentionally sends internal debugging/timing data and is not a public deployment.
+    // Production responses must not expose customer data, including after mutations.
+    const publicResponse = await page.request.get("/motos");
+    expect(await publicResponse.text()).not.toContain("PrivateQuality");
     await admin.getByRole("dialog").getByRole("button", { name: "Annuler", exact: true }).click();
     await expect.poll(async () => (await sql`select status from ops_reservations where id = ${records[0].id}`)[0].status).toBe("cancelled");
     await page.reload();

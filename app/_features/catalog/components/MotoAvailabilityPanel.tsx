@@ -4,7 +4,6 @@ import { useMemo, useState, type ReactNode } from "react";
 import type { CatalogMotorcycle } from "@/app/_features/catalog/data/motorcycles";
 import {
   buildReservationSearchParams,
-  createDefaultReservationWindow,
   evaluateReservation,
   formatDateInputValue,
   type ReservationPickupMode,
@@ -19,7 +18,7 @@ import { Button } from "@/app/_shared/ui/Button";
 import { Input } from "@/app/_shared/ui/Input";
 import { Label } from "@/app/_shared/ui/Label";
 
-const defaultWindow = createDefaultReservationWindow();
+import { useReservationDates } from "@/app/_features/reservation/hooks/useReservationDates";
 
 type MotoAvailabilityPanelProps = {
   motorcycle: CatalogMotorcycle;
@@ -32,8 +31,7 @@ export function MotoAvailabilityPanel({
   initialPlanningReservations,
   initialPlanningBlocks,
 }: MotoAvailabilityPanelProps) {
-  const [pickupDate, setPickupDate] = useState(defaultWindow.pickupDate);
-  const [returnDate, setReturnDate] = useState(defaultWindow.returnDate);
+  const { pickupDate, returnDate, setPickupDate, setReturnDate } = useReservationDates();
   const [pickupMode, setPickupMode] =
     useState<ReservationPickupMode>("motorcycle-location");
   const { reservations, blocks } = usePlanningLedger({

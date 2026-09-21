@@ -19,7 +19,6 @@ import {
 } from "@/app/_features/catalog/lib/catalogFilters";
 import {
   buildReservationSearchParams,
-  createDefaultReservationWindow,
   evaluateReservation,
   formatDateRange,
   type ReservationPickupMode,
@@ -39,7 +38,7 @@ type MotoCatalogClientProps = {
   initialPlanningBlocks: ReadonlyArray<PublicPlanningBlock>;
 };
 
-const DEFAULT_WINDOW = createDefaultReservationWindow();
+import { useReservationDates } from "@/app/_features/reservation/hooks/useReservationDates";
 
 export function MotoCatalogClient({
   motorcycles,
@@ -57,8 +56,7 @@ export function MotoCatalogClient({
       "",
   );
   const [hasMobileSelection, setHasMobileSelection] = useState(false);
-  const [pickupDate, setPickupDate] = useState(DEFAULT_WINDOW.pickupDate);
-  const [returnDate, setReturnDate] = useState(DEFAULT_WINDOW.returnDate);
+  const { pickupDate, returnDate, setPickupDate, setReturnDate, resetDates } = useReservationDates();
   const [pickupMode, setPickupMode] =
     useState<ReservationPickupMode>("motorcycle-location");
   const [showOnlyAvailable, setShowOnlyAvailable] = useState(true);
@@ -191,10 +189,8 @@ export function MotoCatalogClient({
   }
 
   function resetFilters() {
-    const defaultWindow = createDefaultReservationWindow();
     setFilters(DEFAULT_CATALOG_FILTERS);
-    setPickupDate(defaultWindow.pickupDate);
-    setReturnDate(defaultWindow.returnDate);
+    resetDates();
     setPickupMode("motorcycle-location");
     setShowOnlyAvailable(true);
     setHasMobileSelection(false);

@@ -1,3 +1,4 @@
+import { vehicleRevision } from "../lib/vehicle-revision";
 import type { ReactNode } from "react";
 import type { OpsVehicleRecord } from "@/app/_features/ops/data/ops-store";
 import { saveVehicleAction } from "@/app/_features/ops/actions/ops-actions";
@@ -26,6 +27,11 @@ export function OpsVehicleForm({
       className="space-y-6"
     >
       <input type="hidden" name="currentSlug" value={vehicle?.slug ?? ""} />
+      <input type="hidden" name="expectedRevision" value={vehicle ? vehicleRevision(vehicle) : ""} />
+
+      {error === "conflict" ? <div role="alert" className="border border-warning/20 bg-warning/8 px-4 py-3 text-sm">
+        Ce véhicule a été modifié dans un autre onglet. La fiche a été actualisée : vérifiez les valeurs avant de réappliquer vos changements.
+      </div> : null}
 
       {error === "save" ? (
         <div role="alert" className="border border-warning/20 bg-warning/8 px-4 py-3 text-sm text-foreground/80">

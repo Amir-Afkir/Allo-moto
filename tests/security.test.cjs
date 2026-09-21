@@ -10,6 +10,7 @@ const secret = randomBytes(32).toString('hex');
 const env = { ADMIN_USERNAME: 'audit-admin', ADMIN_PASSWORD: randomBytes(20).toString('hex'), ADMIN_SESSION_SECRET: secret };
 const { createEmptyReservationClientDraft } = loader.load('app/_features/reservation/data/reservation-intake.ts');
 const validRequest = () => ({
+  expectedPricing: { dailyPrice: 50, depositAmount: 500, currency: "EUR" },
   draft: { motorcycleSlug: 'audit-bike', pickupDate: '2090-06-10', returnDate: '2090-06-12', pickupMode: 'motorcycle-location', permit: 'none' },
   clientDraft: { ...createEmptyReservationClientDraft(), firstName: 'Test', lastName: 'Client', email: 'test@example.invalid', phone: '+33000000000', preferredContact: 'email', permitType: 'A', consentDataUse: true },
 });

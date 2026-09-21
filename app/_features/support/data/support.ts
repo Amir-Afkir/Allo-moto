@@ -1,3 +1,5 @@
+import { supportPhoneDigits } from "@/app/_shared/lib/phone";
+
 const DEFAULT_WHATSAPP_MESSAGE = "Bonjour, j’ai une question avant de reserver une moto.";
 const DEFAULT_MAPBOX_STYLE = "mapbox://styles/mapbox/light-v11";
 const DEFAULT_COUNTRY = "France";
@@ -42,7 +44,7 @@ function normalizePhone(value: string | undefined) {
 }
 
 function phoneDigits(value: string | undefined) {
-  return normalizePhone(value).replace(/\D/g, "");
+  return supportPhoneDigits(value);
 }
 
 function formatPhoneDisplay(value: string | undefined) {
@@ -65,21 +67,25 @@ function formatPhoneDisplay(value: string | undefined) {
 }
 
 function parseNumber(value: string | undefined, fallback: number) {
+  if (!value?.trim()) return fallback;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function parseCoordinate(value: string | undefined) {
+function parseCoordinate(value: string | undefined, max: number) {
+  if (!value?.trim()) return null;
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+  return Number.isFinite(parsed) && Math.abs(parsed) <= max ? parsed : null;
 }
 
 function buildAddressQuery(addressLines: string[]) {
+  if (!addressLines.length) return "";
   const pieces = [...addressLines, DEFAULT_COUNTRY].filter(Boolean);
   return pieces.join(", ");
 }
 
 async function geocodeSupportAddress(query: string, accessToken: string) {
+  try {
   const url = new URL(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json`);
   url.searchParams.set("access_token", accessToken);
   url.searchParams.set("autocomplete", "false");
@@ -89,7 +95,7 @@ async function geocodeSupportAddress(query: string, accessToken: string) {
   url.searchParams.set("types", "address,place,locality,postcode");
 
   const response = await fetch(url.toString(), {
-    cache: "force-cache",
+    cache: "force-cache", next: { revalidate: 3600 }, signal: AbortSignal.timeout(2500),
   });
 
   if (!response.ok) {
@@ -104,11 +110,12 @@ async function geocodeSupportAddress(query: string, accessToken: string) {
   }
 
   const [longitude, latitude] = center;
-  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) {
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude) || Math.abs(longitude) > 180 || Math.abs(latitude) > 90) {
     return null;
   }
 
   return { longitude, latitude };
+  } catch { return null; } // Keep contact details usable when Mapbox is unavailable.
 }
 
 async function buildSupportConfig(): Promise<SupportConfig> {
@@ -130,8 +137,8 @@ async function buildSupportConfig(): Promise<SupportConfig> {
   const accessToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN?.trim() || "";
   const styleUrl = process.env.NEXT_PUBLIC_SUPPORT_MAPBOX_STYLE?.trim() || DEFAULT_MAPBOX_STYLE;
   const addressQuery = process.env.NEXT_PUBLIC_SUPPORT_ADDRESS_QUERY?.trim() || buildAddressQuery(addressLines);
-  const explicitLatitude = parseCoordinate(process.env.NEXT_PUBLIC_SUPPORT_LATITUDE);
-  const explicitLongitude = parseCoordinate(process.env.NEXT_PUBLIC_SUPPORT_LONGITUDE);
+  const explicitLatitude = parseCoordinate(process.env.NEXT_PUBLIC_SUPPORT_LATITUDE, 90);
+  const explicitLongitude = parseCoordinate(process.env.NEXT_PUBLIC_SUPPORT_LONGITUDE, 180);
 
   let resolvedLocation: { latitude: number; longitude: number } | null = null;
   if (explicitLatitude !== null && explicitLongitude !== null) {
@@ -182,7 +189,9 @@ export function buildSupportWhatsAppHref(phone: string | null, message: string) 
 
 export async function getSupportConfig(): Promise<SupportConfig> {
   if (!supportConfigPromise) {
-    supportConfigPromise = buildSupportConfig();
+    // Coalesce in-flight work only; a rejected/degraded result must not poison
+    // this process forever. Successful geocoding uses the bounded Next fetch cache.
+    supportConfigPromise = buildSupportConfig().finally(() => { supportConfigPromise = null; });
   }
 
   return supportConfigPromise;

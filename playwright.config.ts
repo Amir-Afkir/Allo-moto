@@ -1,5 +1,4 @@
 import { defineConfig, devices } from "@playwright/test";
-import { randomBytes } from "node:crypto";
 
 const databaseUrl = process.env.E2E_DATABASE_URL;
 if (!databaseUrl) throw new Error("E2E_DATABASE_URL must point to a disposable local database ending in _e2e.");
@@ -18,7 +17,8 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://127.0.0.1:3100",
+    baseURL: "https://localhost:3100",
+    ignoreHTTPSErrors: true,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     reducedMotion: "reduce",
@@ -28,19 +28,11 @@ export default defineConfig({
     { name: "mobile-webkit", use: { ...devices["iPhone 13"] } },
   ],
   webServer: {
-    // Use the stable dev bundler for interaction tests, not Turbopack's WebKit HMR transport.
-    command: "node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 3100",
-    url: "http://127.0.0.1:3100/ops/login",
+    command: "node tests/e2e-server.cjs",
+    url: "https://localhost:3100/ops/login",
+    ignoreHTTPSErrors: true,
     reuseExistingServer: false,
-    timeout: 120_000,
-    env: {
-      DATABASE_URL: databaseUrl,
-      ADMIN_USERNAME: "quality-browser-admin",
-      ADMIN_PASSWORD: "Quality-browser-only-57!",
-      ADMIN_SESSION_SECRET: randomBytes(32).toString("hex"),
-      CLOUDINARY_CLOUD_NAME: "", CLOUDINARY_API_KEY: "", CLOUDINARY_API_SECRET: "",
-      NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: "",
-      NEXT_TELEMETRY_DISABLED: "1",
-    },
+    timeout: 240_000,
+    env: { E2E_DATABASE_URL: databaseUrl, NEXT_TELEMETRY_DISABLED: "1" },
   },
 });

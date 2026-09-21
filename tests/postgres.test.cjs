@@ -18,7 +18,7 @@ test('PostgreSQL: concurrent confirmations serialize and cancellation keeps pers
     const loader = createLoader({ postgres: require('postgres') });
     const store = loader.load('app/_features/ops/data/ops-store.ts');
     await store.saveVehicle({ values: { slug: 'pg-test-bike', name: 'Test bike', brand: 'Test', category: 'roadster', transmission: 'manual', licenseCategory: 'A', locationLabel: 'Test', featured: true, priceFrom: 50, depositAmount: 500, includedMileageKmPerDay: 100, primaryImage: '', editorialNote: 'Test', opsStatus: 'active' } });
-    const input = { draft: { motorcycleSlug: 'pg-test-bike', pickupDate: '2090-06-01', returnDate: '2090-06-02', pickupMode: 'motorcycle-location', permit: 'A' }, clientDraft: { firstName: 'Test', lastName: 'Client', email: 'test@example.invalid', phone: '+33000000000', preferredContact: 'email', permitType: 'A', consentDataUse: true } };
+    const input = { expectedPricing: { dailyPrice: 50, depositAmount: 500, currency: "EUR" }, draft: { motorcycleSlug: 'pg-test-bike', pickupDate: '2090-06-01', returnDate: '2090-06-02', pickupMode: 'motorcycle-location', permit: 'A' }, clientDraft: { firstName: 'Test', lastName: 'Client', email: 'test@example.invalid', phone: '+33000000000', preferredContact: 'email', permitType: 'A', consentDataUse: true } };
     const [one, two] = await Promise.all([store.createReservationRequest(input), store.createReservationRequest(input)]);
     const outcomes = await Promise.allSettled([one, two].map((record) => store.updateReservationStatus({ reservationId: record.reservation.id, nextStatus: 'confirmed' })));
     assert.equal(outcomes.filter((result) => result.status === 'fulfilled').length, 1);
@@ -52,6 +52,23 @@ test('PostgreSQL: concurrent confirmations serialize and cancellation keeps pers
     const row = await global.__alloMotoOpsSql`select idempotency_key_hash, request_hash from ops_reservations where id = ${ids[0]}`;
     assert.equal(row[0].idempotency_key_hash.length,64);
     assert.equal(row[0].request_hash.length,64);
+
+    // Optimistic revision checks must also work across independent PostgreSQL pools.
+    const current = (await store.getAdminVehicleBySlug('pg-test-bike')).vehicle;
+    const revision = loader.load('app/_features/ops/lib/vehicle-revision.ts').vehicleRevision(current);
+    const editValues = {slug:'pg-test-bike',name:'Test bike',brand:'Test',category:'roadster',transmission:'manual',licenseCategory:'A',locationLabel:'Test',featured:true,priceFrom:50,depositAmount:500,includedMileageKmPerDay:100,primaryImage:'obsolete.webp',editorialNote:'Test',opsStatus:'active'};
+    const edits = await Promise.all([1,2].map((number) => run(process.execPath, ['-e', `
+      const {createLoader}=require(${JSON.stringify(require.resolve('./load-ts.cjs'))});
+      const loader=createLoader({postgres:(url,opts)=>require('postgres')(url,{...opts,onnotice:()=>{}})});
+      (async()=>{try{
+        await loader.load('app/_features/ops/data/ops-store.ts').saveVehicle({currentSlug:'pg-test-bike', expectedRevision:${JSON.stringify(revision)}, values:{...${JSON.stringify(editValues)},brand:'Winner'+${number}},imageChange:{kind:'keep'}});
+        console.log('EDIT:success');
+      }catch(e){if(e.constructor.name !== 'VehicleConflictError')throw e;console.log('EDIT:conflict');}
+      finally{await global.__alloMotoOpsSql?.end({timeout:5});}})().catch(e=>{console.error(e);process.exitCode=1});
+    `], { cwd:temp, env:{...process.env,NODE_PATH:path.join(require('./load-ts.cjs').root,'node_modules')}, timeout:20000 })));
+    assert.equal(edits.filter(({stdout}) => stdout.includes('EDIT:success')).length,1);
+    assert.equal(edits.filter(({stdout}) => stdout.includes('EDIT:conflict')).length,1);
+    assert.equal((await store.getAdminVehicleBySlug('pg-test-bike')).vehicle.primaryImage,'');
 
   } finally {
     await global.__alloMotoOpsSql?.end({ timeout: 5 });

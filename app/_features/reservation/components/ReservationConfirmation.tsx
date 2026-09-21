@@ -46,7 +46,7 @@ export function ReservationConfirmation({
     }
   }
 
-  if (!summaryMotorcycle) {
+  if (!summaryMotorcycle && snapshot.state === "partial") {
     return (
       <section className="border-b border-border/60 pb-8">
         <EmptyState
@@ -116,6 +116,11 @@ export function ReservationConfirmation({
         </Button>
       </div>
 
+      {snapshot.state !== "partial" ? <div aria-label="Montants enregistrés" className="grid grid-cols-2 gap-4 border-y border-border/60 py-4">
+        {snapshot.summaryLines.filter((line) => line.label === "Location" || line.label === "Depot").map((line) => <div key={line.label}>
+          <p className="meta-label">{line.label === "Depot" ? "Dépôt" : line.label}</p><p className="font-semibold">{line.value}</p>
+        </div>)}
+      </div> : null}
       {snapshot.blockingItems.length > 0 ? (
         <div className="rounded-card border border-warning/20 bg-warning/8 p-4">
           <p className="body-copy font-semibold text-foreground">À corriger</p>

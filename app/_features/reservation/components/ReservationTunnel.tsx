@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { priceTerms, reservationPricing, type ReservationPricing, type ReservationPriceTerms } from "../data/reservation-pricing";
+import type { PrivateReservationReceipt } from "../data/private-receipt";
 import { reservationSubmissionKey } from "../data/reservation-submission";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -34,7 +37,6 @@ import type { PublicPlanningBlock, PublicPlanningReservation } from "@/app/_feat
 import { reservationSelectionKey } from "@/app/_features/reservation/data/reservation-confirmation";
 import { usePlanningLedger } from "@/app/_features/reservation/hooks/usePlanningLedger";
 import {
-  type PlanningReservationRecord,
   upsertPlanningReservation,
 } from "@/app/_features/reservation/data/reservation-planning";
 import {
@@ -95,6 +97,12 @@ export function ReservationTunnel({
   initialPickupMode,
   initialStage,
 }: ReservationTunnelProps) {
+  const searchParams = useSearchParams();
+  const locationKey = searchParams.toString();
+  const previousLocation = useRef(locationKey);
+  const [acceptedPricing, setAcceptedPricing] = useState<ReservationPriceTerms | null>(null);
+  const [changedPricing, setChangedPricing] = useState<ReservationPricing | null>(null);
+  const [browserReceipts, setBrowserReceipts] = useState<PrivateReservationReceipt[]>([]);
   const [motorcycleSlug, setMotorcycleSlug] = useState(initialMotorcycleSlug);
   const [pickupDate, setPickupDate] = useState(initialPickupDate);
   const [returnDate, setReturnDate] = useState(initialReturnDate);
@@ -117,7 +125,7 @@ export function ReservationTunnel({
   const [currentReservationId, setCurrentReservationId] = useState<string | null>(
     null,
   );
-  const [verifiedReservation, setVerifiedReservation] = useState<PlanningReservationRecord | null>(null);
+  const [verifiedReservation, setVerifiedReservation] = useState<PrivateReservationReceipt | null>(null);
   const [isSubmittingReservation, setIsSubmittingReservation] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPlanningModalOpen, setIsPlanningModalOpen] = useState(false);
@@ -237,17 +245,29 @@ export function ReservationTunnel({
   );
 
   const durationDays = calculateReservationDuration(pickupDate, returnDate);
+  const displayedPricing = selectedMotorcycle ? {
+    ...(acceptedPricing ?? priceTerms(reservationPricing(selectedMotorcycle, durationDays))),
+    totalDays: durationDays,
+    estimatedTotal: (acceptedPricing?.dailyPrice ?? selectedMotorcycle.priceFrom.amount) * durationDays,
+  } : null;
+  const displayTerms = viewStage === "confirmed" ? verifiedReservation?.pricing : displayedPricing;
+  const displayedMotorcycle = selectedMotorcycle && displayTerms ? {
+    ...selectedMotorcycle,
+    priceFrom: { amount: displayTerms.dailyPrice, currency: displayTerms.currency },
+    deposit: { amount: displayTerms.depositAmount, currency: displayTerms.currency },
+  } : selectedMotorcycle;
   const isReady = evaluation.available;
   const readyForPreparation = isReady && clientValidation.readyForReview;
   const buildStageHref = (stage: ReservationStage, anchor?: string) => {
-    const search = buildReservationSearchParams({
+    const search = new URLSearchParams(buildReservationSearchParams({
       motorcycleSlug: selectedMotorcycle?.slug ?? null,
       pickupDate,
       returnDate,
       pickupMode,
       permit,
       stage,
-    });
+    }));
+    if (stage === "confirmed" && currentReservationId) search.set("reservationId", currentReservationId);
 
     return `/reserver?${search}${anchor ? `#${anchor}` : ""}`;
   };
@@ -332,19 +352,39 @@ export function ReservationTunnel({
   useEffect(() => {
     const storedConfirmation = loadReservationConfirmationRecord();
     if (storedConfirmation && storedConfirmation.selectionKey === reservationSelectionKey({
-      motorcycleSlug: initialMotorcycleSlug,
-      pickupDate: initialPickupDate,
-      returnDate: initialReturnDate,
-      pickupMode: initialPickupMode,
+      motorcycleSlug: initialMotorcycleSlug, pickupDate: initialPickupDate,
+      returnDate: initialReturnDate, pickupMode: initialPickupMode,
     })) {
       setConfirmationRecord(storedConfirmation);
-      if (storedConfirmation.reservationId) {
-        setCurrentReservationId(storedConfirmation.reservationId);
-      }
+      setCurrentReservationId(storedConfirmation.reservationId);
     }
-
     setConfirmationRecordLoaded(true);
   }, [initialMotorcycleSlug, initialPickupDate, initialReturnDate, initialPickupMode]);
+
+  // Native history changes, Next links and browser back/forward share one route state.
+  // Preserve the in-memory dossier across step changes; never force-remount it.
+  useEffect(() => {
+    if (previousLocation.current === locationKey) return;
+    previousLocation.current = locationKey;
+    const params = new URLSearchParams(locationKey);
+    const next = {
+      motorcycleSlug: params.get("motorcycle") ?? initialMotorcycleSlug,
+      pickupDate: params.get("pickupDate") ?? initialPickupDate,
+      returnDate: params.get("returnDate") ?? initialReturnDate,
+      pickupMode: parseReservationPickupMode(params.get("pickupMode") ?? undefined),
+    };
+    const stage = params.get("stage");
+    const nextStage = stage === "client" || stage === "payment" || stage === "confirmed" ? stage : "selection";
+    const selectionChanged = reservationSelectionKey(next) !== reservationSelectionKey({ motorcycleSlug, pickupDate, returnDate, pickupMode });
+    if (selectionChanged) {
+      setMotorcycleSlug(next.motorcycleSlug); setPickupDate(next.pickupDate);
+      setReturnDate(next.returnDate); setPickupMode(next.pickupMode);
+      setVerifiedReservation(null); setCurrentReservationId(null); setConfirmationRecord(null);
+      setAcceptedPricing(null); setChangedPricing(null); setSubmitError(null);
+    }
+    if (params.has("reservationId")) setCurrentReservationId(params.get("reservationId"));
+    setViewStage(nextStage); setHasChecked(nextStage !== "selection"); setIsPlanningModalOpen(false);
+  }, [locationKey, initialMotorcycleSlug, initialPickupDate, initialReturnDate, motorcycleSlug, pickupDate, returnDate, pickupMode]);
 
   useEffect(() => {
     if (!clientDraftLoaded || !clientDraftTouched) {
@@ -363,7 +403,9 @@ export function ReservationTunnel({
   }, [confirmationRecordLoaded, resolvedConfirmationRecord]);
 
   useEffect(() => {
-    if (!currentReservationId || !confirmationRecordLoaded) return;
+    if (!confirmationRecordLoaded) return;
+    const params = new URLSearchParams(locationKey);
+    const targetId = params.get("reservationId") || currentReservationId;
     const controller = new AbortController();
     let active = true;
     let inFlight = false;
@@ -371,30 +413,41 @@ export function ReservationTunnel({
       if (inFlight) return;
       inFlight = true;
       try {
-        const response = await fetch("/api/reservations", {
-          cache: "no-store",
-          credentials: "same-origin",
-          signal: controller.signal,
+        // Recover from HttpOnly cookies even with empty/denied sessionStorage.
+        const response = await fetch(`/api/reservations${targetId ? `?id=${encodeURIComponent(targetId)}` : ""}`, {
+          cache: "no-store", credentials: "same-origin", signal: controller.signal,
         });
-        const payload = await response.json() as { ok?: boolean; reservation?: PlanningReservationRecord };
+        const payload = await response.json() as { ok?: boolean; reservations?: PrivateReservationReceipt[] };
         if (!active) return;
-        if (response.ok && payload.ok && payload.reservation?.id === currentReservationId) {
-          setVerifiedReservation(payload.reservation);
-          setPlanningReservations((current) => upsertPlanningReservation(current, payload.reservation!));
-        } else {
+        const receipts = response.ok && payload.ok ? payload.reservations ?? [] : [];
+        if (!targetId) setBrowserReceipts(receipts);
+        const receipt = targetId ? receipts.find((record) => record.id === targetId)
+          : viewStage !== "confirmed" ? undefined
+          : !params.has("motorcycle") && !params.has("pickupDate") ? receipts[0]
+          : receipts.find((record) => reservationSelectionKey(record) ===
+              reservationSelectionKey({ motorcycleSlug, pickupDate, returnDate, pickupMode }));
+        if (receipt) {
+          setVerifiedReservation(receipt); setCurrentReservationId(receipt.id); setPlanningFeedback(null);
+          setPlanningReservations((current) => upsertPlanningReservation(current, receipt));
+          if (viewStage === "confirmed") {
+            setMotorcycleSlug(receipt.motorcycleSlug); setPickupDate(receipt.pickupDate);
+            setReturnDate(receipt.returnDate); setPickupMode(receipt.pickupMode);
+          }
+        } else if (targetId || viewStage === "confirmed") {
           setVerifiedReservation(null);
-          setPlanningFeedback("Suivi non accessible dans ce navigateur. Contactez Allo Moto avec votre référence.");
+          setPlanningFeedback(response.status === 503 ? "Suivi temporairement indisponible. Réessayez." :
+            "Suivi non accessible dans ce navigateur. Contactez Allo Moto avec votre référence.");
         }
       } catch {
         if (active) setPlanningFeedback("Actualisation du suivi indisponible. Réessayez ou contactez Allo Moto.");
-      } finally {
-        inFlight = false;
-      }
+      } finally { inFlight = false; }
     }
     void refreshPrivateReceipt();
-    const timer = window.setInterval(() => void refreshPrivateReceipt(), 30_000);
-    return () => { active = false; controller.abort(); window.clearInterval(timer); };
-  }, [currentReservationId, confirmationRecordLoaded, setPlanningReservations]);
+    const refreshOnFocus = () => { if (document.visibilityState === "visible") void refreshPrivateReceipt(); };
+    window.addEventListener("focus", refreshOnFocus);
+    const timer = window.setInterval(refreshOnFocus, 30_000);
+    return () => { active = false; controller.abort(); window.clearInterval(timer); window.removeEventListener("focus", refreshOnFocus); };
+  }, [currentReservationId, confirmationRecordLoaded, setPlanningReservations, locationKey, viewStage, motorcycleSlug, pickupDate, returnDate, pickupMode]);
 
   useEffect(() => {
     setLiveNotice(
@@ -465,7 +518,15 @@ export function ReservationTunnel({
     });
   }
 
+  function navigateStage(stage: ReservationStage, next = draft, receiptId: string | null = null, replace = false) {
+    const params = new URLSearchParams(buildReservationSearchParams({ ...next, stage }));
+    if (stage === "confirmed" && receiptId) params.set("reservationId", receiptId);
+    setViewStage(stage);
+    window.history[replace ? "replaceState" : "pushState"](null, "", `/reserver?${params}`);
+  }
+
   function resetValidation() {
+    setAcceptedPricing(null); setChangedPricing(null);
     if (hasChecked) {
       setHasChecked(false);
     }
@@ -484,6 +545,7 @@ export function ReservationTunnel({
   function handleSelectionChange(nextValue: string) {
     setMotorcycleSlug(nextValue);
     resetValidation();
+    navigateStage("selection", { ...draft, motorcycleSlug: nextValue }, null, true);
   }
 
   function handleDateChange(
@@ -492,11 +554,13 @@ export function ReservationTunnel({
   ) {
     nextSetter(value);
     resetValidation();
+    navigateStage("selection", { ...draft, [nextSetter === setPickupDate ? "pickupDate" : "returnDate"]: value }, null, true);
   }
 
   function handleModeChange(value: string) {
     setPickupMode(parseReservationPickupMode(value));
     resetValidation();
+    navigateStage("selection", { ...draft, pickupMode: parseReservationPickupMode(value) }, null, true);
   }
 
   function handleClientDraftChange<K extends keyof ReservationClientDraft>(
@@ -518,7 +582,7 @@ export function ReservationTunnel({
 
   async function handleSubmitReservation() {
     if (
-      !selectedMotorcycle ||
+      !selectedMotorcycle || !displayedPricing || changedPricing ||
       !evaluation.available ||
       !clientValidation.readyForReview ||
       isSubmittingReservation || submissionInFlight.current
@@ -531,7 +595,7 @@ export function ReservationTunnel({
     setSubmitError(null);
 
     try {
-      const requestBody = { draft, clientDraft };
+      const requestBody = { draft, clientDraft, expectedPricing: priceTerms(displayedPricing) };
       const idempotencyKey = await reservationSubmissionKey(requestBody);
       const response = await fetch("/api/reservations", {
         method: "POST",
@@ -546,10 +610,17 @@ export function ReservationTunnel({
         | {
             ok?: boolean;
             message?: string;
-            reservation?: PlanningReservationRecord;
+            reservation?: PrivateReservationReceipt;
+            code?: string;
+            currentPricing?: ReservationPricing;
           }
         | null;
 
+      if (response.status === 409 && payload?.code === "PRICE_CHANGED" && payload.currentPricing) {
+        setChangedPricing(payload.currentPricing);
+        setSubmitError(payload.message ?? "Le tarif a changé. Votre accord est nécessaire.");
+        return;
+      }
       if (!response.ok || !payload?.ok || !payload.reservation) {
         setSubmitError(
           payload?.message ??
@@ -579,8 +650,7 @@ export function ReservationTunnel({
       );
       setHasChecked(true);
       setShowPreparation(false);
-      setViewStage("confirmed");
-      window.history.replaceState(null, "", buildStageHref("confirmed"));
+      navigateStage("confirmed", draft, pendingReservation.id, true);
     } catch {
       setSubmitError(
         "La demande n'a pas pu être envoyée. Réessayez dans un instant.",
@@ -597,7 +667,7 @@ export function ReservationTunnel({
       return;
     }
 
-    setViewStage("payment");
+    navigateStage("payment");
     setShowPreparation(true);
     setHasChecked(true);
   }
@@ -607,7 +677,7 @@ export function ReservationTunnel({
     setHasChecked(true);
 
     if (evaluation.available && selectedMotorcycle) {
-      setViewStage("client");
+      navigateStage("client");
     }
   }
 
@@ -648,6 +718,7 @@ export function ReservationTunnel({
     setReturnDate(planningDraft.returnDate);
     setPickupMode(planningDraft.pickupMode);
     resetValidation();
+    navigateStage("selection", { ...draft, ...planningDraft }, null, true);
     setPlanningFeedback(
       hadHold
         ? "Créneau mis à jour. La demande précédente reste enregistrée ; contactez Allo Moto pour la modifier."
@@ -734,6 +805,17 @@ export function ReservationTunnel({
         </div>
       ) : null}
 
+      {browserReceipts.length > 0 ? <nav aria-label="Vos demandes dans ce navigateur" className="mb-5 rounded-card border border-border/60 p-4">
+        <p className="text-sm font-semibold">Retrouver mes demandes</p>
+        <div className="mt-2 flex flex-wrap gap-3">{browserReceipts.map((receipt) => {
+          const params = new URLSearchParams(buildReservationSearchParams({ motorcycleSlug: receipt.motorcycleSlug, pickupDate: receipt.pickupDate,
+            returnDate: receipt.returnDate, pickupMode: receipt.pickupMode, permit: "none", stage: "confirmed" }));
+          params.set("reservationId", receipt.id);
+          // A receipt switch starts from its explicit URL and fresh server data.
+          // Do not reuse the current receipt's in-flight client-router transition.
+          return <a key={receipt.id} href={`/reserver?${params}`} className="text-sm underline">{receipt.reference}</a>;
+        })}</div>
+      </nav> : null}
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6 md:space-y-8">
           <section className="space-y-4 border-b border-border/60 pb-6 md:space-y-6 md:pb-8">
@@ -983,6 +1065,9 @@ export function ReservationTunnel({
             />
           ) : viewStage === "payment" ? (
             <ReservationPayment
+              pricing={displayedPricing}
+              changedPricing={changedPricing}
+              onAcceptPricing={() => { if (changedPricing) setAcceptedPricing(priceTerms(changedPricing)); setChangedPricing(null); setSubmitError(null); }}
               motorcycle={selectedMotorcycle}
               draft={draft}
               clientDraft={clientDraft}
@@ -1025,7 +1110,7 @@ export function ReservationTunnel({
         <aside className="hidden space-y-5 md:block xl:sticky xl:top-[10rem] xl:self-start">
           {selectedMotorcycle ? (
             <MotoRetenueSidebar
-              motorcycle={selectedMotorcycle}
+              motorcycle={displayedMotorcycle ?? selectedMotorcycle}
               selectedVisible
               contextLabel={null}
               primaryActionLabel={reservationSidebarAction.label}

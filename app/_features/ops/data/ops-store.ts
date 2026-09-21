@@ -1,4 +1,6 @@
 import "server-only";
+import { reservationPricing, samePriceTerms, ReservationPriceChangedError, type ReservationPriceTerms } from "@/app/_features/reservation/data/reservation-pricing";
+import { vehicleRevision, VehicleConflictError, type VehicleImageChange } from "../lib/vehicle-revision";
 import { validateVehicleValues } from "../lib/vehicle-validation";
 
 import { mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
@@ -513,6 +515,14 @@ export async function getOpsActionSummary(now: Date = new Date()): Promise<OpsAc
   };
 }
 
+/** Caller must verify each private capability before requesting these records. */
+export async function getReservationRecordsByIds(ids: readonly string[]) {
+  const allowed = new Set(ids.slice(0, 8));
+  if (!allowed.size) return [];
+  const store = await readStore();
+  return store.reservations.filter((record) => allowed.has(record.id));
+}
+
 export async function getAdminReservationById(id: string) {
   const store = await readStore();
   const reservation = store.reservations.find((candidate) => candidate.id === id) ?? null;
@@ -534,6 +544,7 @@ export async function createReservationRequest(input: {
   draft: ReservationDraft;
   clientDraft: ReservationClientDraft;
   idempotencyKey?: string;
+  expectedPricing: ReservationPriceTerms;
 }) {
   const key = input.idempotencyKey === undefined ? undefined : parseIdempotencyKey(input.idempotencyKey);
   input = parseReservationRequest(input);
@@ -557,6 +568,9 @@ export async function createReservationRequest(input: {
     if (!vehicle) {
       throw new ReservationInputError("Moto introuvable.");
     }
+
+    const currentPricing = reservationPricing(vehicle, calculateReservationDuration(input.draft.pickupDate, input.draft.returnDate));
+    if (!samePriceTerms(input.expectedPricing, currentPricing)) throw new ReservationPriceChangedError(currentPricing);
 
     const clientValidation = validateReservationClientDraft(
       input.clientDraft,
@@ -747,6 +761,8 @@ export async function updateReservationStatus(input: {
 
 export async function saveVehicle(input: {
   currentSlug?: string | null;
+  expectedRevision?: string;
+  imageChange?: VehicleImageChange;
   values: OpsVehicleSaveValues;
 }) {
   input = { ...input, values: validateVehicleValues(input.values) };
@@ -755,6 +771,12 @@ export async function saveVehicle(input: {
       ? store.vehicles.find((vehicle) => vehicle.slug === input.currentSlug) ?? null
       : null;
     if (input.currentSlug && !existingVehicle) throw new Error("Moto introuvable.");
+    if (existingVehicle && input.expectedRevision !== vehicleRevision(existingVehicle)) throw new VehicleConflictError();
+    // Resolve keep from the locked record, never from a form's stale URL.
+    const imageChange = input.imageChange ?? { kind: "keep" as const };
+    const image = imageChange.kind === "replace" ? imageChange.asset
+      : imageChange.kind === "remove" ? { src: "", publicId: null }
+      : { src: existingVehicle?.primaryImage ?? input.values.primaryImage, publicId: existingVehicle?.primaryImagePublicId ?? input.values.primaryImagePublicId ?? null };
     const nextSlug = normalizeVehicleSlug(
       input.values.slug ?? "",
       existingVehicle?.slug ?? null,
@@ -799,8 +821,8 @@ export async function saveVehicle(input: {
         existingVehicle?.description,
         nextNote,
       ),
-      primaryImage: input.values.primaryImage,
-      primaryImagePublicId: input.values.primaryImagePublicId ?? null,
+      primaryImage: image.src,
+      primaryImagePublicId: image.publicId,
       gallery:
         (input.values.gallery?.length ?? 0) > 0
           ? (input.values.gallery ?? [])
@@ -857,7 +879,14 @@ export async function saveVehicle(input: {
       store.vehicles.unshift(nextVehicle);
     }
 
-    return nextVehicle;
+    const previousSrc = existingVehicle?.primaryImage;
+    // The asset is eligible for cleanup only if no persisted primary/gallery still uses it.
+    const stillReferenced = previousSrc && store.vehicles.some((vehicle) =>
+      vehicle.primaryImage === previousSrc || vehicle.gallery.includes(previousSrc) ||
+      (existingVehicle?.primaryImagePublicId && vehicle.primaryImagePublicId === existingVehicle.primaryImagePublicId));
+    const replacedImage = previousSrc && previousSrc !== image.src && !stillReferenced
+      ? { src: previousSrc, publicId: existingVehicle?.primaryImagePublicId ?? null } : null;
+    return { ...nextVehicle, replacedImage };
   });
 }
 
@@ -1230,9 +1259,10 @@ async function updateStore<T>(
 }
 
 function invalidatePublicData() {
-  revalidateTag("public-catalog");
-  revalidateTag("public-planning");
-  revalidateTag("public-home");
+  for (const tag of ["public-catalog", "public-planning", "public-home"]) {
+    try { revalidateTag(tag); }
+    catch { console.error("Public cache invalidation failed after commit."); }
+  }
 }
 
 async function readStore(): Promise<OpsStoreSnapshot> {

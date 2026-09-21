@@ -1,5 +1,7 @@
 "use server";
 
+import { vehicleRevision, VehicleConflictError, type VehicleImageChange } from "../lib/vehicle-revision";
+
 import { redirect } from "next/navigation";
 import {
   addVehicleBlock,
@@ -40,7 +42,7 @@ function readVehicleImageState(formData: FormData) {
 
 function buildVehicleErrorPath(
   currentSlug: string | null,
-  error: "save" | "image",
+  error: "save" | "image" | "conflict",
 ) {
   if (currentSlug) {
     return `/ops/fleet/${currentSlug}?error=${error}`;
@@ -128,7 +130,8 @@ export async function saveVehicleAction(formData: FormData) {
   const imageFile = readFile(formData, "primaryImageFile");
   let redirectSlug = currentSlug;
   let uploadedImage: UploadedVehicleImage | null = null;
-  let errorType: "save" | "image" = "save";
+  let persisted = false;
+  let errorType: "save" | "image" | "conflict" = "save";
   const existingVehicle = currentSlug
     ? (await getAdminVehicleBySlug(currentSlug))?.vehicle ?? null
     : null;
@@ -136,8 +139,9 @@ export async function saveVehicleAction(formData: FormData) {
   try {
     const parsedValues = parseVehicleForm(formData);
     if (currentSlug && !existingVehicle) throw new Error("Vehicle no longer exists.");
-    let primaryImage = existingVehicle?.primaryImage ?? "";
-    let primaryImagePublicId = existingVehicle?.primaryImagePublicId ?? null;
+    const expectedRevision = readString(formData, "expectedRevision");
+    if (existingVehicle && expectedRevision !== vehicleRevision(existingVehicle)) throw new VehicleConflictError();
+    let imageChange: VehicleImageChange = { kind: "keep" };
 
     if (imageState === "replace") {
       if (!imageFile) {
@@ -157,45 +161,31 @@ export async function saveVehicleAction(formData: FormData) {
         throw new Error("Vehicle image upload failed.");
       }
 
-      primaryImage = uploadedImage.src;
-      primaryImagePublicId = uploadedImage.publicId;
+      imageChange = { kind: "replace", asset: uploadedImage };
     } else if (imageState === "remove") {
-      primaryImage = "";
-      primaryImagePublicId = null;
+      imageChange = { kind: "remove" };
     }
 
-    const values = { ...parsedValues, primaryImage, primaryImagePublicId };
+    const values = parsedValues;
     const vehicle = await saveVehicle({
       currentSlug,
+      expectedRevision,
+      imageChange,
       values,
     });
+    persisted = true;
     redirectSlug = vehicle.slug;
-
-    if (
-      imageState === "replace" &&
-      existingVehicle?.primaryImage &&
-      existingVehicle.primaryImage !== primaryImage
-    ) {
-      await deleteVehicleImageAsset({
-        src: existingVehicle.primaryImage,
-        publicId: existingVehicle.primaryImagePublicId,
-      }).catch(() => {
-        // Keep the saved vehicle even if the previous image cleanup fails.
+    if (vehicle.replacedImage) {
+      await deleteVehicleImageAsset(vehicle.replacedImage).catch(() => {
+        // An orphan is safer than rolling back a committed image reference.
+        console.error("Vehicle image cleanup deferred.");
       });
     }
-
-    if (imageState === "remove" && existingVehicle?.primaryImage) {
-      await deleteVehicleImageAsset({
-        src: existingVehicle.primaryImage,
-        publicId: existingVehicle.primaryImagePublicId,
-      }).catch(() => {
-        // Keep the saved vehicle even if the previous image cleanup fails.
-      });
-    }
-  } catch {
-    if (uploadedImage) {
+  } catch (error) {
+    if (error instanceof VehicleConflictError) errorType = "conflict";
+    if (uploadedImage && !persisted) {
       await deleteVehicleImageAsset(uploadedImage).catch(() => {
-        // Best-effort cleanup for a freshly uploaded image on failed save.
+        console.error("Uncommitted vehicle image cleanup deferred.");
       });
     }
 
