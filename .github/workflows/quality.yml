@@ -42,7 +42,7 @@ jobs:
           cache: npm
       - run: npm ci
         id: install
-      - run: npm run lint
+      - run: npm run lint -- --max-warnings=0
       - run: npm test
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         env:
@@ -52,7 +52,7 @@ jobs:
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - run: npm run typecheck
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
-      - run: npm audit --omit=dev --audit-level=high
+      - run: npm audit --audit-level=moderate
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
       - name: Report full dependency audit
         if: ${{ !cancelled() && steps.install.outcome == 'success' }}
