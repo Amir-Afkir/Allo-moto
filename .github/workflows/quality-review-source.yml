@@ -1,0 +1,21 @@
+name: Quality source review
+on:
+  push:
+    branches: [chatgpt/quality-pass-3]
+    paths: [.github/workflows/quality-review-source.yml]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - run: git archive --format=zip --output=/tmp/source.zip HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quality-pass-source
+          path: /tmp/source.zip
+          retention-days: 1
