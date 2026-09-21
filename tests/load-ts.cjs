@@ -18,8 +18,8 @@ function createLoader(overrides = {}) {
     if (Object.hasOwn(mocks, filename)) return mocks[filename];
     const absolute = path.isAbsolute(filename) ? filename : path.join(root, filename);
     if (cache.has(absolute)) return cache.get(absolute).exports;
-    const module = { exports: {} };
-    cache.set(absolute, module);
+    const entry = { exports: {} };
+    cache.set(absolute, entry);
     const source = fs.readFileSync(absolute, 'utf8');
     const result = ts.transpileModule(source, {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX },
@@ -41,8 +41,8 @@ function createLoader(overrides = {}) {
       return require(specifier);
     };
     new vm.Script(`(function(require,module,exports,__dirname,__filename){${result.outputText}\n})`, { filename: absolute })
-      .runInThisContext()(localRequire, module, module.exports, path.dirname(absolute), absolute);
-    return module.exports;
+      .runInThisContext()(localRequire, entry, entry.exports, path.dirname(absolute), absolute);
+    return entry.exports;
   }
   return { load, invalidations };
 }

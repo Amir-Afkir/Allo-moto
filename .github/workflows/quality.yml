@@ -17,25 +17,46 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: allo_moto_test
+          POSTGRES_PASSWORD: disposable-test-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd 'pg_isready -U postgres -d allo_moto_test'
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
-      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Export tracked source for review
-        run: git archive --format=zip --output=/tmp/source.zip HEAD
-      - uses: actions/upload-artifact@v4
-        with:
-          name: security-pass-source
-          path: /tmp/source.zip
-          retention-days: 1
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: '22'
           cache: npm
       - run: npm ci
       - run: npm run lint
-      - run: npm run test --if-present
+      - run: npm test
+        if: ${{ !cancelled() }}
+        env:
+          TEST_DATABASE_URL: postgres://postgres:disposable-test-password@localhost:5432/allo_moto_test
       - run: npm run build
+        if: ${{ !cancelled() }}
       - run: npm run typecheck
+        if: ${{ !cancelled() }}
+      - run: npm audit --omit=dev --audit-level=high
+        if: ${{ !cancelled() }}
+      - name: Report full dependency audit
+        if: ${{ !cancelled() }}
+        run: npm audit --json > /tmp/npm-audit.json || true
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: dependency-audit
+          path: /tmp/npm-audit.json
+          retention-days: 7
