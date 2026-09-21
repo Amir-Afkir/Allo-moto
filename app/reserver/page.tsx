@@ -98,7 +98,7 @@ function parseStage(
   const canOpenNextStep = hasSelectedMotorcycle && hasExplicitScheduleSelection;
 
   if (value === "confirmed") {
-    return canOpenNextStep ? "confirmed" : "selection";
+    return "confirmed";
   }
 
   if (value === "selection") {

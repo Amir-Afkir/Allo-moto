@@ -119,7 +119,7 @@ export function MotoFilterBar({
     [filters],
   );
   const advancedFiltersActive = hasAdvancedCatalogFilters(filters);
-  const defaultWindow = useMemo(() => createDefaultReservationWindow(), []);
+  const defaultWindow = createDefaultReservationWindow();
   const hasScheduleFilters =
     pickupDate !== defaultWindow.pickupDate ||
     returnDate !== defaultWindow.returnDate ||

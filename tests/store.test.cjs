@@ -22,6 +22,7 @@ async function fixture(work, overrides = {}) {
       primaryImage: '', editorialNote: 'Test bike', opsStatus: 'active', slug: 'audit-bike',
     } });
     const input = {
+      expectedPricing: { dailyPrice: 50, depositAmount: 500, currency: "EUR" },
       draft: { motorcycleSlug: 'audit-bike', pickupDate: '2090-06-10', returnDate: '2090-06-12', pickupMode: 'motorcycle-location', permit: 'A' },
       clientDraft: { firstName: 'PRIVATE-FIRST', lastName: 'PRIVATE-LAST', email: 'test@example.invalid', phone: '+33000000000', country: '', preferredContact: 'email', permitType: 'A', permitNumber: 'PRIVATE-PERMIT', documentType: 'passport', documentNumber: 'PRIVATE-PASSPORT', notes: 'PRIVATE-NOTE', consentDataUse: true },
     };

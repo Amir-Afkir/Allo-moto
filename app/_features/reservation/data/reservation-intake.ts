@@ -1,3 +1,4 @@
+import { isPlausiblePhone } from "@/app/_shared/lib/phone";
 import type { MotorcycleLicenseCategory } from "@/app/_features/catalog/data/motorcycles";
 
 export type ReservationPreferredContact = "whatsapp" | "phone" | "email";
@@ -153,8 +154,8 @@ export function validateReservationClientDraft(
   if (!draft.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email)) {
     errors.email = "Email valide requis.";
   }
-  if (!draft.phone.trim()) {
-    errors.phone = "Téléphone requis.";
+  if (!isPlausiblePhone(draft.phone)) {
+    errors.phone = draft.phone.trim() ? "Numéro de téléphone invalide." : "Téléphone requis.";
   }
   if (!draft.preferredContact) {
     errors.preferredContact = "Préférence requise.";
@@ -204,7 +205,7 @@ export function buildReservationClientChecklist(draft: ReservationClientDraft): 
     { label: "Prénom", note: "Votre identité.", complete: Boolean(draft.firstName.trim()), required: true },
     { label: "Nom", note: "Le nom du dossier.", complete: Boolean(draft.lastName.trim()), required: true },
     { label: "Email", note: "Pour le suivi.", complete: Boolean(draft.email.trim()), required: true },
-    { label: "Téléphone", note: "Le numéro joignable.", complete: Boolean(draft.phone.trim()), required: true },
+    { label: "Téléphone valide", note: "Le numéro joignable.", complete: Boolean(draft.phone.trim()), required: true },
     {
       label: "Préférence de contact",
       note: "Le canal le plus simple.",

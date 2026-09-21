@@ -42,7 +42,7 @@ function actions({authenticated = true, existing = null, failSave = false} = {})
     '@/app/_features/ops/lib/auth': {requireAdminSession: async () => { if (!authenticated) redirect('/ops/login'); }},
     '@/app/_features/ops/data/ops-store': {
       getAdminVehicleBySlug: async () => existing && {vehicle:existing},
-      saveVehicle: async (input) => {calls.saved.push(input); if (failSave) throw new Error('write failed'); return {slug:'quality-road'};},
+      saveVehicle: async (input) => {calls.saved.push(input); if (failSave) throw new Error('write failed'); return {slug:'quality-road',replacedImage:existing ? {src:existing.primaryImage,publicId:existing.primaryImagePublicId}:null};},
     },
     '@/app/_features/ops/lib/image-upload': {
       uploadVehicleImage: async (input) => {calls.uploads.push(input); return {src:'new.webp',publicId:'new'};},
@@ -65,10 +65,10 @@ test('admin authorization and form validation occur before external upload or mu
 test('image replacement keeps old asset until save succeeds, cleans only new asset on failure', async () => {
   for (const failSave of [false,true]) {
     const {action,calls} = actions({existing:{primaryImage:'old.webp',primaryImagePublicId:'old'}, failSave});
-    const data = form(); data.set('currentSlug','quality-road'); data.set('primaryImageState','replace');
+    const data = form(); data.set('expectedRevision', createLoader().load('app/_features/ops/lib/vehicle-revision.ts').vehicleRevision({primaryImage:'old.webp',primaryImagePublicId:'old'})); data.set('currentSlug','quality-road'); data.set('primaryImageState','replace');
     data.set('primaryImageFile',new File(['mock'],'file.png',{type:'image/png'}));
     await assert.rejects(action(data), (e) => Boolean(e.location));
-    assert.equal(calls.saved[0].values.primaryImage,'new.webp');
+    assert.equal(calls.saved[0].imageChange.asset.src,'new.webp');
     assert.deepEqual(calls.deleted, [{src:failSave ? 'new.webp':'old.webp',publicId:failSave ? 'new':'old'}]);
   }
 });

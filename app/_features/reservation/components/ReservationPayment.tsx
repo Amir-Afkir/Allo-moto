@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReservationPricing } from "../data/reservation-pricing";
 import { type CatalogMotorcycle } from "@/app/_features/catalog/data/motorcycles";
 import { formatDateRange, type ReservationDraft, type ReservationEvaluation } from "@/app/_features/reservation/data/reservation";
 import type {
@@ -13,6 +14,9 @@ import { EmptyState } from "@/app/_shared/ui/EmptyState";
 
 type ReservationPaymentProps = {
   motorcycle: CatalogMotorcycle | null;
+  pricing: ReservationPricing | null;
+  changedPricing: ReservationPricing | null;
+  onAcceptPricing: () => void;
   draft: ReservationDraft;
   clientDraft: ReservationClientDraft;
   clientValidation: ReservationClientValidation;
@@ -26,7 +30,7 @@ type ReservationPaymentProps = {
 };
 
 export function ReservationPayment({
-  motorcycle,
+  motorcycle, pricing, changedPricing, onAcceptPricing,
   draft,
   clientDraft,
   clientValidation,
@@ -72,7 +76,7 @@ export function ReservationPayment({
     {
       label: "Location",
       value: formatMoney(
-        motorcycle.priceFrom.amount * Math.max(evaluation.durationDays, 1),
+        pricing?.estimatedTotal ?? motorcycle.priceFrom.amount * Math.max(evaluation.durationDays, 1),
         motorcycle.priceFrom.currency,
       ),
       note: `${Math.max(evaluation.durationDays, 1)} jour${evaluation.durationDays > 1 ? "s" : ""}`,
@@ -80,7 +84,7 @@ export function ReservationPayment({
     {
       label: "Dépôt",
       value: formatMoney(
-        motorcycle.deposit.amount,
+        pricing?.depositAmount ?? motorcycle.deposit.amount,
         motorcycle.deposit.currency,
       ),
       note: "À régler ou autoriser au retrait",
@@ -94,6 +98,11 @@ export function ReservationPayment({
 
   return (
     <section id="send-form" className="space-y-8 border-b border-border/60 pb-8">
+      {changedPricing ? <div role="alert" className="rounded-card border border-warning/20 bg-warning/8 p-4 space-y-3">
+        <p className="font-semibold">Le tarif a changé. Aucune demande n’a été enregistrée.</p>
+        <p>Nouveau total : {formatMoney(changedPricing.estimatedTotal, changedPricing.currency)}. Dépôt : {formatMoney(changedPricing.depositAmount, changedPricing.currency)}.</p>
+        <Button as="button" type="button" ariaLabel="Accepter le nouveau tarif" variant="accent" size="md" onClick={onAcceptPricing}>Accepter le nouveau tarif</Button>
+      </div> : null}
       <div className="grid gap-x-6 gap-y-4 border-y border-border/60 py-4 sm:grid-cols-3">
         {summaryFacts.map((fact) => (
           <div key={fact.label} className="space-y-1.5">
@@ -185,7 +194,7 @@ export function ReservationPayment({
             variant={readyToSubmit ? "accent" : "outline"}
             size="lg"
             onClick={onSubmitReservation}
-            disabled={!readyToSubmit || isSubmitting}
+            disabled={!readyToSubmit || isSubmitting || Boolean(changedPricing)}
           >
             {isSubmitting ? "Envoi en cours" : "Envoyer la demande"}
           </Button>

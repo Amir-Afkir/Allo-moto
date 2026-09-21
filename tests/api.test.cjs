@@ -11,6 +11,7 @@ class TestResponse extends Response {
   }
 }
 const body = () => ({
+  expectedPricing: { dailyPrice: 50, depositAmount: 500, currency: "EUR" },
   draft: { motorcycleSlug: 'bike', pickupDate: '2090-01-01', returnDate: '2090-01-02', pickupMode: 'motorcycle-location', permit: 'A' },
   clientDraft: { firstName: 'Test', lastName: 'Client', email: 'test@example.invalid', phone: '+33000000000', preferredContact: 'email', permitType: 'A', consentDataUse: true },
 });
@@ -48,7 +49,7 @@ test('API sets a purpose-bound HttpOnly private receipt only after successful pe
   assert.ok(!JSON.stringify(result).includes('PRIVATE'));
   assert.equal(response.headers.get('cache-control'), 'private, no-store, max-age=0');
   const [name, cookie, flags] = response.cookieWrites[0];
-  assert.equal(name, 'allo-moto.reservation.receipt.v2');
+  assert.match(name, /^allo-moto\.reservation\.receipt\.v3\.[a-f0-9]{24}$/);
   assert.equal(flags.httpOnly, true); assert.equal(flags.secure, true); assert.equal(flags.sameSite, 'lax');
   assert.equal(flags.path, '/api/reservations');
   const security = loader.load('app/_features/ops/lib/session-security.ts');
@@ -83,7 +84,7 @@ test('API never sends raw infrastructure errors or cookies on failure', () => en
 
 test('a GET without a receipt cannot enumerate by adding an id query parameter', () => environment(async () => {
   const route = apiLoader(async () => { throw new Error('unexpected'); }).load('app/api/reservations/route.ts');
-  const response = await route.GET({ cookies: { get: () => undefined }, url: 'https://test.invalid/api/reservations?id=someone-else' });
+  const response = await route.GET({ cookies: { getAll: () => [] }, url: 'https://test.invalid/api/reservations?id=someone-else' });
   assert.equal(response.status, 404); assert.equal((await response.json()).reservation, undefined);
   assert.ok(response.headers.get('cache-control').includes('no-store'));
 }));

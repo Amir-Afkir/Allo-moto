@@ -7,6 +7,7 @@ import type {
   ReservationClientDraft,
   ReservationClientValidation,
 } from "./reservation-intake";
+import type { ReservationPricing } from "./reservation-pricing";
 import type { PlanningReservationRecord } from "./reservation-planning";
 import { formatMoney } from "@/app/_shared/lib/format";
 import { formatDateRange } from "./reservation";
@@ -63,7 +64,7 @@ export function createReservationConfirmationRecord({
   clientDraft: ReservationClientDraft;
   clientValidation: ReservationClientValidation;
   evaluation: ReservationEvaluation;
-  planningReservation: PlanningReservationRecord | null;
+  planningReservation: (PlanningReservationRecord & { pricing?: ReservationPricing }) | null;
   existingRecord: ReservationConfirmationRecord | null;
 }): ReservationConfirmationRecord {
   void clientDraft;
@@ -106,7 +107,7 @@ export function buildReservationConfirmationSnapshot({
   clientDraft: ReservationClientDraft;
   clientValidation: ReservationClientValidation;
   evaluation: ReservationEvaluation;
-  planningReservation: PlanningReservationRecord | null;
+  planningReservation: (PlanningReservationRecord & { pricing?: ReservationPricing }) | null;
   confirmationRecord: ReservationConfirmationRecord | null;
 }): ReservationConfirmationSnapshot {
   const record = createReservationConfirmationRecord({
@@ -129,13 +130,13 @@ export function buildReservationConfirmationSnapshot({
     ? `${motorcycle.brand} ${motorcycle.model}`
     : "Moto a confirmer";
 
-  const locationAmount = motorcycle
+  const locationAmount = planningReservation?.pricing ? formatMoney(planningReservation.pricing.estimatedTotal, planningReservation.pricing.currency) : motorcycle
     ? formatMoney(
         motorcycle.priceFrom.amount * Math.max(evaluation.durationDays, 1),
         motorcycle.priceFrom.currency,
       )
     : "A confirmer";
-  const depositAmount = motorcycle
+  const depositAmount = planningReservation?.pricing ? formatMoney(planningReservation.pricing.depositAmount, planningReservation.pricing.currency) : motorcycle
     ? formatMoney(motorcycle.deposit.amount, motorcycle.deposit.currency)
     : "A confirmer";
 
