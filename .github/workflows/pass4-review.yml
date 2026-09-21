@@ -1,0 +1,31 @@
+name: Pass 4 source review
+on:
+  push:
+    branches: [chatgpt/reliability-pass-4]
+    paths: [.github/workflows/pass4-review.yml]
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: git archive --format=zip --output=/tmp/pass4-source.zip HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pass4-source
+          path: /tmp/pass4-source.zip
+          retention-days: 1
+      - run: npm ci
+      - run: tar -czf /tmp/pass4-dependencies.tar.gz node_modules
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pass4-dependencies
+          path: /tmp/pass4-dependencies.tar.gz
+          retention-days: 1
