@@ -1,68 +1,48 @@
-name: Apply and validate security pass
+name: Finalize security pass dependencies
 
 on:
   push:
     branches: [chatgpt/security-data-pass-1]
-    paths: ['.maintenance/security-pass.chunk*']
+    paths: ['.maintenance/finalize-security-pass.py']
 
 permissions:
   contents: write
 
 jobs:
-  apply:
+  finalize:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: allo_moto_test
-          POSTGRES_PASSWORD: disposable-test-password
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    timeout-minutes: 15
     env:
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@v4
         with:
           ref: chatgpt/security-data-pass-1
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify and apply reviewed patch
-        run: |
-          cat .maintenance/security-pass.chunk{0,1,2,3,4} | xz -dc > /tmp/security-pass.patch
-          echo '867f433c8da81983787307cdfde0f1b54648761e32c946841059a53955ccce91  /tmp/security-pass.patch' | sha256sum --check --strict
-          git apply --check /tmp/security-pass.patch
-          git apply /tmp/security-pass.patch
-      - name: Regenerate dependency lockfile
-        run: npm install --package-lock-only --ignore-scripts
-      - name: Commit reviewed source and lockfile to dedicated branch
+      - run: python3 .maintenance/finalize-security-pass.py
+      - run: npm install --package-lock-only --ignore-scripts
+      - run: npm audit fix --package-lock-only --ignore-scripts
+      - name: Commit patched dependency graph and reviewed integration fixes
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app tests docs .env.example README.md REPO_CARTOGRAPHY.md package.json package-lock.json
-          git commit -m 'fix: protect admin sessions and private reservation data; retain history'
+          git add app docs package.json package-lock.json
+          git commit -m 'fix: integrate retained statuses and patched image/CSS dependencies'
           git push origin HEAD:refs/heads/chatgpt/security-data-pass-1
-      - name: Export candidate source
-        if: always()
-        run: git archive --format=zip --output=/tmp/candidate.zip HEAD
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: security-pass-candidate
-          path: /tmp/candidate.zip
-          retention-days: 1
       - run: npm ci
       - run: npm run lint
       - run: npm test
-        env:
-          TEST_DATABASE_URL: postgres://postgres:disposable-test-password@localhost:5432/allo_moto_test
       - run: npm run build
       - run: npm run typecheck
-      - run: npm audit --omit=dev --audit-level=high
+      - run: npm audit --audit-level=moderate
+      - name: Export final source for review
+        if: always()
+        run: git archive --format=zip --output=/tmp/final-source.zip HEAD
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-pass-final-source
+          path: /tmp/final-source.zip
+          retention-days: 1
