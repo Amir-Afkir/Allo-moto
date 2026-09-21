@@ -208,7 +208,6 @@ export function ReservationTunnel({
       currentReservationId,
       draft,
       evaluation,
-      planningReservations,
       verifiedReservation,
       selectedMotorcycle,
     ],
@@ -227,10 +226,8 @@ export function ReservationTunnel({
     [
       clientDraft,
       clientValidation,
-      currentReservationId,
       draft,
       evaluation,
-      planningReservations,
       verifiedReservation,
       resolvedConfirmationRecord,
       selectedMotorcycle,

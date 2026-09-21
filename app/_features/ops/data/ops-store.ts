@@ -1156,7 +1156,7 @@ async function updateStore<T>(
   mutate: (store: OpsStoreSnapshot) => Promise<T> | T,
 ) {
   if (hasOpsDatabase()) {
-    return withOpsDatabaseStoreTransaction(async (store, persist) => {
+    const result = await withOpsDatabaseStoreTransaction(async (store, persist) => {
       const normalized = normalizeStore(store);
       const workingStore = normalized.store;
 
@@ -1166,10 +1166,12 @@ async function updateStore<T>(
 
       const result = await mutate(workingStore);
       await persist(workingStore);
-      invalidatePublicData();
 
       return result;
     });
+    // Publish invalidation only after the transaction has committed.
+    invalidatePublicData();
+    return result;
   }
 
   if (process.env.NODE_ENV === "production") {

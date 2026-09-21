@@ -79,3 +79,17 @@ un service PostgreSQL dédié, sans accès aux secrets de production.
   Définir la durée et un mécanisme de suppression/anonymisation explicite et traçable.
 - Aucun audit de configuration réelle Netlify/Cloudinary, aucune rotation réelle des secrets,
   aucun test sur téléphone réel ni restauration de sauvegarde de production n'est réalisé ici.
+
+## Dépendances de sécurité complémentaires
+
+Next.js reste sur 15.5.24. Le graphe transitif de cette version conserve des bibliothèques
+signalées par npm : override PostCSS 8.5.23 et Sharp 0.35.4 (également dépendance runtime
+explicite). Ces overrides ne doivent pas être retirés tant que le parent ne fournit pas
+une version corrigée. Les autres correctifs compatibles sont résolus par npm sans --force.
+Un test encode puis décode AVIF et WebP avec le véritable Sharp ; le build Next complet
+valide l'intégration PostCSS/Tailwind. L'audit doit être relancé après toute mise à jour.
+
+Sources des mainteneurs :
+- https://github.com/postcss/postcss/security/advisories/GHSA-fxqj-rqcc-2cmp
+- https://github.com/lovell/sharp/security/advisories/GHSA-rgj7-g3m4-5g8c
+- https://sharp.pixelplumbing.com/changelog/v0.35.4/

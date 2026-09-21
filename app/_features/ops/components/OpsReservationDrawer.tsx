@@ -11,7 +11,7 @@ type OpsReservationDrawerProps = {
   closeHref: string;
   title: string;
   statusLabel: string;
-  statusTone: "warning" | "success";
+  statusTone: "warning" | "success" | "danger" | "outline";
   periodLabel: string;
   children: ReactNode;
   footer?: ReactNode;
