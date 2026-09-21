@@ -24,7 +24,12 @@ test("public pages and invalid schedule render without crashes or horizontal ove
   }
   await page.getByRole("button", { name: "Vérifier la disponibilité", exact: true }).click();
   await expect(page.locator("#client-form")).toHaveCount(0);
-  expect((await page.goto("/motos/nonexistent-quality-bike"))?.status()).toBe(404);
+  const missing = await page.goto("/motos/nonexistent-quality-bike");
+  // Next streams may commit HTTP 200 before notFound(); still require not-found UI and noindex.
+  expect([200, 404]).toContain(missing?.status());
+  await expect(page.getByText("Moto introuvable", { exact: true })).toBeVisible();
+  await expect(page.locator('meta[name="robots"][content*="noindex"]').first()).toBeAttached();
+  await expect(page.getByRole("link", { name: "Voir les motos", exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -40,7 +45,7 @@ test("admin upload preserves selected file, rejects oversize, and saves a real >
   await page.getByLabel("Km inclus / jour").fill("100");
   const file = page.locator('input[type="file"]');
   await file.setInputFiles({ name: "oversize.png", mimeType: "image/png", buffer: Buffer.alloc(4 * 1024 * 1024 + 1) });
-  await expect(page.getByRole("alert")).toContainText("4 Mo");
+  await expect(page.getByRole("alert").filter({ hasText: "L’image dépasse la limite de 4 Mo." })).toBeVisible();
   await expect(page.locator('input[name="primaryImageState"]')).toHaveValue("keep");
   const buffer = await sharp(randomBytes(800 * 600 * 3), { raw: { width: 800, height: 600, channels: 3 } }).png().toBuffer();
   expect(buffer.length).toBeGreaterThan(1024 * 1024);
@@ -98,6 +103,10 @@ test("reservation UI persists once, private follow-up reflects admin confirmatio
     expect(records).toHaveLength(1);
     await admin.goto(`http://127.0.0.1:3100/ops/reservations?open=${records[0].id}`);
     await admin.getByRole("dialog").getByRole("button", { name: "Confirmer", exact: true }).click();
+    // Processing a request intentionally closes the drawer and returns to the inbox.
+    await expect(admin).toHaveURL("http://127.0.0.1:3100/ops/reservations");
+    await expect.poll(async () => (await sql`select status from ops_reservations where id = ${records[0].id}`)[0].status).toBe("confirmed");
+    await admin.goto(`http://127.0.0.1:3100/ops/reservations?open=${records[0].id}`);
     await expect(admin.getByRole("dialog").getByRole("button", { name: "Annuler", exact: true })).toBeVisible();
     await page.reload();
     await expect(page.locator("#confirmation")).toContainText("Votre réservation est confirmée.");

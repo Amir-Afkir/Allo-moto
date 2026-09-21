@@ -23,7 +23,6 @@ export function OpsVehicleForm({
   return (
     <form
       action={saveVehicleAction}
-      encType="multipart/form-data"
       className="space-y-6"
     >
       <input type="hidden" name="currentSlug" value={vehicle?.slug ?? ""} />

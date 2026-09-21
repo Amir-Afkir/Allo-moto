@@ -43,3 +43,12 @@ test('upload rejects forged MIME/SVG, unreadable bytes and oversized pixel dimen
   const huge = await sharp({create:{width:7000,height:6000,channels:3,background:'#678'}}).png().toBuffer();
   await assert.rejects(normalizeVehicleImage(new File([huge],'large.png',{type:'image/png'})));
 });
+
+// Two actual WebP frames, not a MIME-only animation stub.
+test('upload rejects an animated WebP before persistence', async () => {
+  const { createLoader } = require('./load-ts.cjs');
+  const { normalizeVehicleImage } = createLoader().load('app/_features/ops/lib/image-upload.ts');
+  const bytes = Buffer.from('UklGRpQAAABXRUJQVlA4WAoAAAACAAAABwAABwAAQU5JTQYAAAAAAAAAAABBTk1GMAAAAAAAAAAAAAcAAAcAAMgAAAJWUDggGAAAADABAJ0BKggACAABQCYlpAADcAD+/TZoAEFOTUYwAAAAAAAAAAAABwAABwAAyAAAAFZQOCAYAAAANAEAnQEqCAAIAAAAJiWkAANwAP789AAA', 'base64');
+  assert.equal((await sharp(bytes).metadata()).pages, 2);
+  await assert.rejects(normalizeVehicleImage(new File([bytes], 'animated.webp', { type: 'image/webp' })));
+});
