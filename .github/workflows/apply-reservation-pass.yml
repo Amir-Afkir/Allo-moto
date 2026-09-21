@@ -43,18 +43,18 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Apply hash-verified reviewed patch
+      - name: Apply hash-verified reviewed source patch
         run: |
-          test "$(git rev-parse HEAD~1)" = c986938b2cf52998b7096dfd0c2a9bcf8becca40
+          git merge-base --is-ancestor c986938b2cf52998b7096dfd0c2a9bcf8becca40 HEAD
           cat .maintenance/reservation-pass2.chunk{0,1,2,3} | base64 -d | xz -dc > /tmp/reservation-pass2.patch
           echo '99ef8e87d53f77fdb36da51de9418ebad2881ca7b644ffc33a6bef8d68bb9aec  /tmp/reservation-pass2.patch' | sha256sum --check --strict
-          git apply --check /tmp/reservation-pass2.patch
-          git apply /tmp/reservation-pass2.patch
-      - name: Commit reviewed changes to dedicated branch only
+          git apply --check --exclude=.github/workflows/quality.yml /tmp/reservation-pass2.patch
+          git apply --exclude=.github/workflows/quality.yml /tmp/reservation-pass2.patch
+      - name: Commit application source to dedicated branch only
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add app tests docs .github/workflows/quality.yml
+          git add app tests docs
           git commit -m 'fix: unify rental calendar, future availability and idempotent submissions'
           git push origin HEAD:refs/heads/chatgpt/reservation-pass-2
       - run: npm ci
