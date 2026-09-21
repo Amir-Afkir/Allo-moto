@@ -82,10 +82,15 @@ test("price conflict requires explicit acceptance; two receipts survive a fresh 
     await expect(fresh.locator("#confirmation")).toContainText(first.reference);
     await expect(fresh.locator("#confirmation")).toContainText("Votre demande a bien été envoyée.");
     await expect(fresh.getByLabel("Montants enregistrés")).toContainText(String(first.pricing.estimatedTotal));
-    await fresh.goto("/reserver?stage=confirmed");
-    await expect(fresh.getByRole("navigation", { name: "Vos demandes dans ce navigateur" }).getByRole("link")).toHaveCount(2);
-    await fresh.getByRole("link", { name: first.reference, exact: true }).click();
-    await expect(fresh.locator("#confirmation")).toContainText(first.reference);
+    // Switch both ways repeatedly: the newest receipt must never replace the selected one.
+    for (const selected of [first, second, first]) {
+      await fresh.goto("/reserver?stage=confirmed");
+      await expect(fresh.getByRole("navigation", { name: "Vos demandes dans ce navigateur" }).getByRole("link")).toHaveCount(2);
+      await fresh.getByRole("link", { name: selected.reference, exact: true }).click();
+      await expect(fresh).toHaveURL((url) => url.searchParams.get("reservationId") === selected.id);
+      await expect(fresh.locator("#confirmation")).toContainText(selected.reference);
+      await expect(fresh.getByLabel("Montants enregistrés")).toContainText(String(selected.pricing.estimatedTotal));
+    }
     expect(errors).toEqual([]); await fresh.close();
   } finally {
     await sql`update ops_vehicles set price_amount = ${before.price_amount}, deposit_amount = ${before.deposit_amount} where slug = 'bmw-g310r'`;

@@ -811,7 +811,9 @@ export function ReservationTunnel({
           const params = new URLSearchParams(buildReservationSearchParams({ motorcycleSlug: receipt.motorcycleSlug, pickupDate: receipt.pickupDate,
             returnDate: receipt.returnDate, pickupMode: receipt.pickupMode, permit: "none", stage: "confirmed" }));
           params.set("reservationId", receipt.id);
-          return <Link key={receipt.id} href={`/reserver?${params}`} className="text-sm underline">{receipt.reference}</Link>;
+          // A receipt switch starts from its explicit URL and fresh server data.
+          // Do not reuse the current receipt's in-flight client-router transition.
+          return <a key={receipt.id} href={`/reserver?${params}`} className="text-sm underline">{receipt.reference}</a>;
         })}</div>
       </nav> : null}
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
